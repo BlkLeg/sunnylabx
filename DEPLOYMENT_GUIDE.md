@@ -68,7 +68,7 @@ docker-compose up -d
 ```
 
 **Verification**:
-- AdGuard Home: `http://node2-ip:3000` (initial setup)
+- AdGuard Home: `http://node2-ip:3003` (initial setup) ⚠️ **Port updated to avoid conflicts**
 - Nginx Proxy Manager: `http://node2-ip:81` (admin@example.com / changeme)
 - Cloudflare Tunnel: Check tunnel status in Cloudflare dashboard
 
@@ -164,6 +164,7 @@ docker-compose -f docker-compose-database.yml up -d
 - PostgreSQL: `psql -h node1-ip -U postgres -d sunnylabx`
 - pgAdmin: `http://node1-ip:5050`
 - Redis Commander: `http://node1-ip:8081`
+- **Note**: All database ports verified conflict-free
 
 **Configuration**:
 1. **pgAdmin Setup**:
@@ -213,9 +214,10 @@ docker-compose -f docker-compose-devops.yml up -d
    - Configure quality gates
 
 2. **Docker Registry** (`http://node1-ip:5000`):
-   - Configure authentication
+   - Configure authentication  
    - Test image push/pull
-   - Set up Registry UI access
+   - Registry UI available at `http://node1-ip:5001`
+   - **Nexus Repository**: `http://node1-ip:8083` ⚠️ **Port updated to resolve conflict**
 
 ---
 
@@ -315,7 +317,7 @@ docker-compose up -d
    - Create Home Assistant bucket
    - Generate access tokens
 
-4. **Zigbee2MQTT** (`http://node1-ip:8080`):
+4. **Zigbee2MQTT** (`http://node1-ip:8085`): ⚠️ **Port updated to resolve conflict**
    - Configure Zigbee coordinator
    - Permit device joining
    - Map devices to Home Assistant
@@ -456,6 +458,37 @@ docker-compose up -d
    - Document all service URLs and credentials
    - Create network diagram
    - Document backup and recovery procedures
+
+---
+
+## ⚠️ Port Conflict Resolution
+
+**CRITICAL**: Before deployment, be aware of these resolved port conflicts:
+
+### Fixed Conflicts
+- ✅ **Zigbee2MQTT**: Moved from port 8080 → 8085 (conflicted with Nextcloud)
+- ✅ **Nexus Repository**: Moved from port 8081 → 8083 (conflicted with Redis Commander)
+
+### Remaining Placeholder Conflicts (For Future Development)
+When implementing placeholder services, be aware of these conflicts:
+- **AdGuard Home vs Grafana**: Both want port 3000 on Node #2
+- **Immich vs IoT Grafana**: Both want port 3001 on Node #1  
+- **qBittorrent vs Nextcloud**: Both want port 8080 on Node #1
+- **Kavita vs Overseerr**: Both want port 5055 on Node #1
+
+**Solution**: Refer to `PORT_REGISTRY.md` for complete port allocation plan.
+
+### Port Verification Commands
+```bash
+# Check if port is in use
+sudo netstat -tlnp | grep :8080
+
+# Check all Docker container ports
+docker ps --format "table {{.Names}}\t{{.Ports}}"
+
+# Test port connectivity
+curl -I http://localhost:8080
+```
 
 ---
 
