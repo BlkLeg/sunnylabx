@@ -1,0 +1,6 @@
+# Placeholder for Ansible playbook
+---
+- name: Placeholder playbook
+  hosts: all
+  tasks:
+    # Tasks will be configured here

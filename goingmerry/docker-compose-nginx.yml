@@ -1,0 +1,5 @@
+# Placeholder for nginx service configuration
+version: '3.8'
+
+services:
+  # nginx service will be configured here
