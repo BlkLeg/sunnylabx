@@ -1,0 +1,92 @@
+# =============================================================================
+# NordVPN Ansible Variables
+# Purpose: Configuration variables for NordVPN playbook
+# Security: Use ansible-vault to encrypt sensitive variables
+# =============================================================================
+
+# NordVPN Service Configuration
+nordvpn_service_settings:
+  # Global settings applied to all nodes
+  lan_discovery: enabled
+  threat_protection: disabled  # Can cause issues with Docker
+  obfuscate: disabled
+  protocol: nordlynx  # or udp/tcp
+  
+# Server Selection by Node Role
+nordvpn_server_configs:
+  # Media/Content nodes - prioritize streaming-optimized servers
+  thousandsunny:
+    primary_server: "Los_Angeles"
+    backup_servers:
+      - "San_Francisco" 
+      - "Seattle"
+    specialty: "P2P"  # Good for media downloading
+    
+  # Management nodes - prioritize stability
+  goingmerry:
+    primary_server: "Los_Angeles"
+    backup_servers:
+      - "Denver"
+      - "Phoenix"
+    specialty: "Standard"  # Stable for management traffic
+
+# DNS Configuration
+nordvpn_dns_config:
+  # Primary DNS servers (Cloudflare + Google)
+  servers:
+    - "1.1.1.1"    # Cloudflare primary
+    - "8.8.8.8"    # Google primary
+  # Alternative DNS (uncomment if needed)
+  # servers:
+  #   - "1.0.0.1"    # Cloudflare secondary  
+  #   - "8.8.4.4"    # Google secondary
+
+# Security Settings
+nordvpn_security:
+  # Enable killswitch on all nodes to prevent IP leaks
+  killswitch: true
+  # Auto-connect on boot
+  autoconnect: true
+  # Firewall rules (additional to killswitch)
+  firewall: true
+
+# Per-Node Customization
+nordvpn_node_overrides:
+  node1:  # thousandsunny
+    # Media node may need P2P servers
+    allow_p2p: true
+    # Higher timeout for large downloads  
+    connection_timeout: 30
+    
+  node2:  # goingmerry
+    # Management node prioritizes stability
+    allow_p2p: false
+    # Standard timeout
+    connection_timeout: 15
+
+# Monitoring and Health Checks
+nordvpn_monitoring:
+  # Enable connection monitoring
+  health_check_enabled: true
+  # Check interval in minutes
+  health_check_interval: 5
+  # Auto-reconnect on failure
+  auto_reconnect: true
+  # IP leak protection
+  leak_protection: true
+
+# =============================================================================
+# SECURITY NOTICE:
+# 
+# The NordVPN token should be stored in an encrypted vault file:
+# 
+# 1. Create vault file:
+#    ansible-vault create group_vars/all/vault.yml
+# 
+# 2. Add encrypted token:
+#    vault_nordvpn_token: "your_actual_token_here"
+# 
+# 3. Run playbook with vault:
+#    ansible-playbook -i hosts.ini --ask-vault-pass nordvpn-playbook.yml
+# 
+# =============================================================================

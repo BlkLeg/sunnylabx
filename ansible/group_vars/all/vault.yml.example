@@ -1,0 +1,40 @@
+# =============================================================================
+# Encrypted Vault Variables (EXAMPLE)
+# Purpose: Securely store sensitive NordVPN credentials
+# Usage: ansible-vault encrypt group_vars/all/vault.yml
+# =============================================================================
+
+# EXAMPLE VAULT FILE - REPLACE WITH ACTUAL ENCRYPTED VERSION
+# 
+# To create an encrypted version:
+# 1. Copy this file to vault.yml
+# 2. Replace the example token with your actual NordVPN token
+# 3. Encrypt: ansible-vault encrypt group_vars/all/vault.yml
+# 4. Delete this example file
+
+# NordVPN Authentication Token
+# Get your token from: https://my.nordaccount.com/dashboard/nordvpn/
+vault_nordvpn_token: "REPLACE_WITH_YOUR_ACTUAL_NORDVPN_TOKEN"
+
+# Additional encrypted variables can be added here
+# vault_nordvpn_username: "your_username"  # If using username/password auth
+# vault_nordvpn_password: "your_password"  # If using username/password auth
+
+# =============================================================================
+# SECURITY INSTRUCTIONS:
+# 
+# 1. Get your NordVPN token:
+#    - Login to https://my.nordaccount.com/
+#    - Go to Dashboard > NordVPN > Access Token
+#    - Generate new token
+# 
+# 2. Create real vault file:
+#    cp vault.yml.example vault.yml
+#    # Edit vault.yml with your real token
+#    ansible-vault encrypt vault.yml
+#    rm vault.yml.example  # Delete this example
+# 
+# 3. Run playbook with vault:
+#    ansible-playbook -i hosts.ini --ask-vault-pass nordvpn-playbook.yml
+# 
+# =============================================================================

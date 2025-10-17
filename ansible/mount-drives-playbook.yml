@@ -1,0 +1,272 @@
+---
+# SunnyLabX Drive Mounting Playbook
+# 
+# Purpose: Configure and mount storage drives on Node 1 (thousandsunny)
+# Use Case: Fresh Linux installations, drive additions, or mount point recovery
+# 
+# IMPORTANT: This playbook is ONLY for Node 1 (thousandsunny)
+# Do NOT run on Node 2 (goingmerry) as it has different storage configuration
+#
+# Usage:
+#   ansible-playbook -i hosts.ini mount-drives-playbook.yml
+#   ansible-playbook -i hosts.ini mount-drives-playbook.yml --limit node1
+#
+# Prerequisites:
+#   - Target node must be accessible via SSH
+#   - User must have sudo privileges
+#   - Storage drives must be physically connected and detected by system
+#
+# Safety Features:
+#   - Validates drives exist before mounting
+#   - Creates backup of /etc/fstab before modification
+#   - Verifies mount success after configuration
+#   - Provides rollback information on failure
+
+- name: Configure Storage Drive Mounting for Node 1 (thousandsunny)
+  hosts: node1
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Drive configuration for thousandsunny (Node 1)
+    storage_drives:
+      - uuid: "d5d82cbc-ab7b-419d-8012-2db4888a9985"
+        mount_point: "/mnt/hdd-1"
+        filesystem: "ext4"
+        mount_options: "defaults"
+        dump: "0"
+        pass: "2"
+        description: "Primary storage drive"
+        
+      - uuid: "8930a544-9b46-433a-987d-c25add4ed00c"
+        mount_point: "/mnt/hdd-2"
+        filesystem: "ext4"
+        mount_options: "defaults"
+        dump: "0"
+        pass: "2"
+        description: "Secondary storage drive"
+        
+      - uuid: "b6f37155-e60d-4daf-9efd-286823fd08e6"
+        mount_point: "/mnt/hdd-3"
+        filesystem: "ext4"
+        mount_options: "defaults"
+        dump: "0"
+        pass: "2"
+        description: "Tertiary storage drive"
+        
+      - uuid: "7041c8f0-b09e-4fdd-b04a-42f6c2dc6a6d"
+        mount_point: "/mnt/hdd-4"
+        filesystem: "ext4"
+        mount_options: "defaults"
+        dump: "0"
+        pass: "2"
+        description: "Quaternary storage drive"
+    
+    # Backup configuration
+    fstab_backup_dir: "/root/ansible-backups"
+    backup_timestamp: "{{ ansible_date_time.epoch }}"
+
+  pre_tasks:
+    - name: Verify this is Node 1 (thousandsunny)
+      fail:
+        msg: "This playbook is only for Node 1 (thousandsunny). Current host: {{ inventory_hostname }}"
+      when: inventory_hostname != "node1" and inventory_hostname != "thousandsunny"
+      
+    - name: Display drive mounting summary
+      debug:
+        msg: |
+          Configuring {{ storage_drives | length }} storage drives on {{ inventory_hostname }}:
+          {% for drive in storage_drives %}
+          - {{ drive.description }}: {{ drive.mount_point }} (UUID: {{ drive.uuid[:8] }}...)
+          {% endfor %}
+
+  tasks:
+    - name: Create backup directory for fstab
+      file:
+        path: "{{ fstab_backup_dir }}"
+        state: directory
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: Create backup of current fstab
+      copy:
+        src: /etc/fstab
+        dest: "{{ fstab_backup_dir }}/fstab.backup.{{ backup_timestamp }}"
+        remote_src: yes
+        mode: '0600'
+        backup: yes
+      register: fstab_backup_result
+
+    - name: Display backup location
+      debug:
+        msg: "fstab backup created at: {{ fstab_backup_result.dest }}"
+
+    - name: Verify storage drives exist in system
+      command: "blkid -U {{ item.uuid }}"
+      register: drive_check
+      failed_when: drive_check.rc != 0
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.description }} ({{ item.uuid[:8] }}...)"
+
+    - name: Display found drives
+      debug:
+        msg: "Found drive {{ item.item.description }} at: {{ item.stdout }}"
+      loop: "{{ drive_check.results }}"
+      loop_control:
+        label: "{{ item.item.description }}"
+
+    - name: Create mount point directories
+      file:
+        path: "{{ item.mount_point }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.mount_point }}"
+
+    - name: Verify mount points were created
+      stat:
+        path: "{{ item.mount_point }}"
+      register: mount_point_check
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.mount_point }}"
+
+    - name: Fail if mount points don't exist
+      fail:
+        msg: "Failed to create mount point: {{ item.item.mount_point }}"
+      when: not item.stat.exists
+      loop: "{{ mount_point_check.results }}"
+      loop_control:
+        label: "{{ item.item.mount_point }}"
+
+    - name: Add drive entries to fstab
+      mount:
+        path: "{{ item.mount_point }}"
+        src: "UUID={{ item.uuid }}"
+        fstype: "{{ item.filesystem }}"
+        opts: "{{ item.mount_options }}"
+        dump: "{{ item.dump }}"
+        passno: "{{ item.pass }}"
+        state: present
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.description }} -> {{ item.mount_point }}"
+      register: fstab_update_result
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+      when: fstab_update_result is changed
+
+    - name: Mount all filesystems from fstab
+      command: mount -a
+      register: mount_all_result
+      failed_when: mount_all_result.rc != 0
+      changed_when: mount_all_result.rc == 0
+
+    - name: Verify all drives are mounted
+      mount:
+        path: "{{ item.mount_point }}"
+        state: mounted
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.mount_point }}"
+      register: mount_verification
+
+    - name: Get mount status for verification
+      command: "mountpoint -q {{ item.mount_point }}"
+      register: mountpoint_check
+      failed_when: mountpoint_check.rc != 0
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.mount_point }}"
+
+    - name: Display mounted drives summary
+      debug:
+        msg: |
+          Successfully mounted {{ storage_drives | length }} drives:
+          {% for drive in storage_drives %}
+          ✓ {{ drive.description }}: {{ drive.mount_point }}
+          {% endfor %}
+
+    - name: Get disk usage for mounted drives
+      command: "df -h {{ item.mount_point }}"
+      register: disk_usage
+      loop: "{{ storage_drives }}"
+      loop_control:
+        label: "{{ item.mount_point }}"
+
+    - name: Display disk usage information
+      debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ disk_usage.results }}"
+      loop_control:
+        label: "{{ item.item.mount_point }}"
+
+  post_tasks:
+    - name: Validate fstab syntax
+      command: mount -fav
+      register: fstab_syntax_check
+      failed_when: fstab_syntax_check.rc != 0
+      changed_when: false
+
+    - name: Create mount verification script
+      copy:
+        dest: /usr/local/bin/verify-mounts.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # SunnyLabX Mount Verification Script
+          # Generated by Ansible on {{ ansible_date_time.iso8601 }}
+          
+          echo "=== SunnyLabX Storage Mount Verification ==="
+          echo "Node: {{ inventory_hostname }}"
+          echo "Date: $(date)"
+          echo
+          
+          {% for drive in storage_drives %}
+          echo "Checking {{ drive.description }} ({{ drive.mount_point }})..."
+          if mountpoint -q {{ drive.mount_point }}; then
+              echo "✓ {{ drive.mount_point }} is mounted"
+              df -h {{ drive.mount_point }} | tail -1
+          else
+              echo "✗ {{ drive.mount_point }} is NOT mounted"
+          fi
+          echo
+          {% endfor %}
+          
+          echo "=== Summary ==="
+          mount | grep "^/dev" | grep "/mnt/hdd"
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+  rescue:
+    - name: Restore fstab backup on failure
+      copy:
+        src: "{{ fstab_backup_result.dest }}"
+        dest: /etc/fstab
+        remote_src: yes
+      when: fstab_backup_result is defined
+
+    - name: Display rollback information
+      debug:
+        msg: |
+          Mount configuration failed! 
+          fstab has been restored from backup: {{ fstab_backup_result.dest if fstab_backup_result is defined else 'No backup available' }}
+          
+          Manual recovery steps:
+          1. Check drive connectivity: lsblk
+          2. Verify UUIDs: blkid
+          3. Check mount points: ls -la /mnt/
+          4. Review logs: journalctl -u systemd-mount
+          
+          Backup location: {{ fstab_backup_dir }}/
+
