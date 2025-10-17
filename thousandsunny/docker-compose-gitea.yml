@@ -1,0 +1,5 @@
+# Placeholder for gitea service configuration
+version: '3.8'
+
+services:
+  # gitea service will be configured here
