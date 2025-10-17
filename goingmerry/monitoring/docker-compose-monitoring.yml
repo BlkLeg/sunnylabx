@@ -1,0 +1,19 @@
+services:
+  # Monitoring stack (Node #2) - split from other node files
+  prometheus:
+    image: "ghcr.io/example/prometheus:placeholder"
+
+  grafana:
+    image: "ghcr.io/example/grafana:placeholder"
+
+  loki:
+    image: "ghcr.io/example/loki:placeholder"
+
+  promtail:
+    image: "ghcr.io/example/promtail:placeholder"
+
+  uptime-kuma:
+    image: "ghcr.io/example/uptime-kuma:placeholder"
+
+  watchtower:
+    image: "ghcr.io/example/watchtower:placeholder"

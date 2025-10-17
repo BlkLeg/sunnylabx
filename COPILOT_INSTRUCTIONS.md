@@ -1,0 +1,14 @@
+## Rules for this project
+- Node #1 is the ThousandSunny & Node #2 is GoingMerry
+- Node #1 192.168.0.254 Node #2 192.168.0.253 - Both running Ubuntu Server LTS 24.04
+- Node #1 Interface: enp3s0 & Node #2 Interface: enp2s0
+- Command Center: TheBaratie (Laptop) 192.168.0.222 - PopOS
+- Each node has its purposes.
+- Never use "Version" in any future docker-compose.yml scripts. This is obsolete on ALL nodes.
+- Docker compose is the correct syntax
+- The nodes should be able to speak to each other.
+- ThousandSunny media drives are mounted at /mnt/hdd-1 /mnt/hdd-2 /mnt/hdd-3 & /mnt/hdd-4
+- GoingMerry has ThousandSunny's drives mounted via NFS at /mnt/HDD1-4 respectively.
+- Cloudflare tunnels + WAF are used for external access
+- ISP Restrictions: No port forwarding; Unable to change DNS server via router interface (restricted)
+- Two branches will exist, the base branch, with all of the placeholder values and dir structure & main branch with real configs.

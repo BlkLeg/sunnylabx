@@ -1,0 +1,25 @@
+services:
+  # Identity and SSO
+  authentik:
+    # Placeholder: Authentik identity provider
+    image: "ghcr.io/example/authentik:placeholder"
+
+  # SIEM
+  wazuh:
+    # Placeholder: Wazuh manager/agent
+    image: "ghcr.io/example/wazuh:placeholder"
+
+  # Collaborative IPS
+  crowdsec:
+    # Placeholder: CrowdSec service
+    image: "ghcr.io/example/crowdsec:placeholder"
+
+  # Network IDS
+  suricata:
+    # Placeholder: Suricata network IDS service
+    image: "ghcr.io/example/suricata:placeholder"
+
+  # Password manager
+  vaultwarden:
+    # Placeholder: Vaultwarden (Bitwarden compatible)
+    image: "ghcr.io/example/vaultwarden:placeholder"

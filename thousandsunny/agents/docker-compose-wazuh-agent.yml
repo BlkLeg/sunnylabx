@@ -1,0 +1,4 @@
+services:
+  # Wazuh Agent (Node #1)
+  wazuh-agent:
+    image: "ghcr.io/example/wazuh-agent:placeholder"

@@ -1,0 +1,13 @@
+services:
+  qbittorrent:
+    # Placeholder: qBittorrent WebUI and client
+    image: "ghcr.io/example/qbittorrent:placeholder"
+
+  deluge:
+    # Placeholder: Deluge torrent client
+    image: "ghcr.io/example/deluge:placeholder"
+
+  # Optional: download helper services (e.g., nzbget, aria2)
+  download-helper:
+    # Placeholder: helper service for downloads
+    image: "ghcr.io/example/download-helper:placeholder"

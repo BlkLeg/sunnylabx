@@ -1,0 +1,36 @@
+services:
+  # Media servers
+  plex:
+    # Placeholder: Plex Media Server
+    image: "ghcr.io/example/plex:placeholder"
+
+  jellyfin:
+    # Placeholder: Jellyfin media server (alternative to Plex)
+    image: "ghcr.io/example/jellyfin:placeholder"
+
+  # Photo/video backup
+  immich:
+    # Placeholder: Immich service
+    image: "ghcr.io/example/immich:placeholder"
+
+  # E-book/comic library
+  kavita:
+    # Placeholder: Kavita digital library
+    image: "ghcr.io/example/kavita:placeholder"
+
+  # ARR Suite - Media automation
+  prowlarr:
+    image: "ghcr.io/example/prowlarr:placeholder"
+
+  sonarr:
+    image: "ghcr.io/example/sonarr:placeholder"
+
+  radarr:
+    image: "ghcr.io/example/radarr:placeholder"
+
+  bazarr:
+    image: "ghcr.io/example/bazarr:placeholder"
+
+  overseerr:
+    # Placeholder: Overseerr request management
+    image: "ghcr.io/example/overseerr:placeholder"

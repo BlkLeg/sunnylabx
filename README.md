@@ -25,7 +25,7 @@
 
 **Automation - Node #2**
 
-n8n - Workflow automation engine to connect services and create automated tasks.
+- n8n - Workflow automation engine to connect services and create automated tasks.
 
 ---
 
@@ -40,7 +40,7 @@ n8n - Workflow automation engine to connect services and create automated tasks.
 
 **Cloud & Productivity - Node #1**
 
-Nextcloud AIO - Private cloud for file storage, calendar, contacts, and photos.
+- Nextcloud AIO - Private cloud for file storage, calendar, contacts, and photos.
 
 **Media Services - Node #1**
 
@@ -60,3 +60,44 @@ Nextcloud AIO - Private cloud for file storage, calendar, contacts, and photos.
 **AI & Machine Learning**
 
 - Ollama + WebUI - Runs local Large Language Models (LLMs) for experimentation and use with other services.
+
+---
+
+## Docker Compose File Mapping
+
+The Docker Compose files are organized by node and category to enable modular deployment and service management. Each compose file sits within a parent folder reflecting its category for clarity.
+
+### Node #2 (goingmerry)
+
+| Category | File Path | Services |
+|----------|-----------|----------|
+| **Networking** | `goingmerry/networking/docker-compose-nginx.yml` | Nginx Proxy Manager, AdGuard Home |
+| **Management** | `goingmerry/management/docker-compose-portainer.yml` | Portainer Controller |
+| **Security** | `goingmerry/security/docker-compose-security.yml` | Authentik, Wazuh, CrowdSec, Suricata, Vaultwarden |
+| **Monitoring** | `goingmerry/monitoring/docker-compose-monitoring.yml` | Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower |
+| **Automation** | `goingmerry/automation/docker-compose-automation.yml` | n8n |
+
+### Node #1 (thousandsunny)
+
+| Category | File Path | Services |
+|----------|-----------|----------|
+| **Infrastructure** | `thousandsunny/infra/docker-compose-gitea.yml` | Gitea, Duplicati, Nextcloud AIO |
+| **Media** | `thousandsunny/media/docker-compose-media.yml` | Plex, Jellyfin, Immich, Kavita, ARR Suite, Overseerr |
+| **Torrent** | `thousandsunny/torrent/docker-compose-torrent.yml` | qBittorrent, Deluge |
+| **AI** | `thousandsunny/ai/docker-compose-ai.yml` | Ollama, Ollama WebUI |
+| **Agents** | `thousandsunny/agents/docker-compose-portainer-agent.yml` | Portainer Agent |
+
+### Usage
+
+To deploy a specific category of services:
+```bash
+# Example: Deploy monitoring stack on Node #2
+cd goingmerry/monitoring
+docker-compose up -d
+
+# Example: Deploy media services on Node #1
+cd thousandsunny/media
+docker-compose up -d
+```
+
+Each compose file contains placeholder configurations that can be customized with proper environment variables, volumes, and network settings.

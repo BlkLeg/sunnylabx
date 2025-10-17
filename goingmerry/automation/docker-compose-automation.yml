@@ -1,0 +1,4 @@
+services:
+  # Automation services (Node #2)
+  n8n:
+    image: "ghcr.io/example/n8n:placeholder"

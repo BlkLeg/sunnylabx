@@ -1,5 +1,0 @@
-# Placeholder for torrent service configuration
-version: '3.8'
-
-services:
-  # torrent service will be configured here

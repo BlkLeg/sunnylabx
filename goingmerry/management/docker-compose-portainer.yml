@@ -1,0 +1,10 @@
+services:
+  # Portainer Controller (Node #2)
+  portainer:
+    # Placeholder: Portainer CE/BE service
+    image: "ghcr.io/example/portainer:placeholder"
+
+  # Optional: lightweight controller helper services
+  portainer-helper:
+    # Placeholder for small helper containers needed by Portainer setup
+    image: "ghcr.io/example/portainer-helper:placeholder"

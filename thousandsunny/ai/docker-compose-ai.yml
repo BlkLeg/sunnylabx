@@ -1,0 +1,9 @@
+services:
+  # AI & Machine Learning (Node #1)
+  ollama:
+    # Placeholder: Ollama LLM runtime
+    image: "ghcr.io/example/ollama:placeholder"
+
+  ollama-webui:
+    # Placeholder: Web UI for interacting with Ollama models
+    image: "ghcr.io/example/ollama-webui:placeholder"

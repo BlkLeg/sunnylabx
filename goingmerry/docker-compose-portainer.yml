@@ -1,5 +1,0 @@
-# Placeholder for portainer service configuration
-version: '3.8'
-
-services:
-  # portainer service will be configured here

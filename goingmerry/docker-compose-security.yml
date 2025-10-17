@@ -1,5 +1,0 @@
-# Placeholder for security service configuration
-version: '3.8'
-
-services:
-  # security service will be configured here

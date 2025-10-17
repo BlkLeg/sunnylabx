@@ -1,0 +1,14 @@
+services:
+  # Git server and development tools (Node #1)
+  gitea:
+    # Placeholder: Gitea self-hosted Git server
+    image: "ghcr.io/example/gitea:placeholder"
+
+  duplicati:
+    # Placeholder: Duplicati backup service
+    image: "ghcr.io/example/duplicati:placeholder"
+
+  # Cloud & productivity (Node #1)
+  nextcloud-aio:
+    # Placeholder: Nextcloud All-in-One
+    image: "ghcr.io/example/nextcloud-aio:placeholder"
