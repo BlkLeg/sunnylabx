@@ -1,6 +1,252 @@
-# Placeholder for Ansible playbook
 ---
-- name: Placeholder playbook
+# SunnyLabX Infrastructure Deployment Playbook
+# Configures both nodes with required packages and Docker setup
+
+- name: Setup SunnyLabX Home Lab Infrastructure
   hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Common packages for all nodes
+    base_packages:
+      - curl
+      - wget
+      - git
+      - htop
+      - aide
+      - build-essential
+      - logwatch
+      - lynis
+      - openssh-server
+      - samba
+      - smartmontools
+      - nmap
+      - net-tools
+      - unzip
+      - python3-pip
+      - pipx
+      - ufw
+      - acl
+      - ca-certificates
+      - apt-transport-https
+      - software-properties-common
+      - gnupg
+      - lsb-release
+
+  pre_tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
   tasks:
-    # Tasks will be configured here
+    - name: Install base system packages
+      apt:
+        name: "{{ base_packages }}"
+        state: present
+        install_recommends: no
+      tags:
+        - packages
+        - base
+
+    - name: Configure UFW firewall - allow SSH (OpenSSH)
+      ufw:
+        rule: allow
+        name: OpenSSH
+      tags:
+        - security
+        - firewall
+        - ssh
+
+    - name: Configure UFW firewall - allow SSH port 22 (backup rule)
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+      tags:
+        - security
+        - firewall
+        - ssh
+
+    - name: Configure UFW firewall - allow HTTP
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+      tags:
+        - security
+        - firewall
+
+    - name: Configure UFW firewall - allow HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+      tags:
+        - security
+        - firewall
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled
+        policy: deny
+      tags:
+        - security
+        - firewall
+
+    - name: Create directory for lab configurations
+      file:
+        path: /opt/sunnylabx
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      tags:
+        - directories
+
+    - name: Clone SunnyLabX repository
+      git:
+        repo: https://github.com/BlkLeg/sunnylabx.git
+        dest: /opt/sunnylabx
+        version: main
+        force: yes
+      become_user: "{{ ansible_user }}"
+      tags:
+        - git
+        - deployment
+
+    - name: Set correct ownership for repository
+      file:
+        path: /opt/sunnylabx
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: yes
+      tags:
+        - permissions
+
+# Node-specific configurations
+- name: Configure Node #2 (goingmerry) - Management Hub
+  hosts: goingmerry
+  become: yes
+  tasks:
+    - name: Configure additional firewall rules for management services
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '9000'  # Portainer
+        - '3000'  # Grafana
+        - '9090'  # Prometheus
+        - '3100'  # Loki
+        - '8080'  # Nginx Proxy Manager
+        - '5000'  # n8n
+      tags:
+        - security
+        - firewall
+        - management
+
+    - name: Create management service directories
+      file:
+        path: "/opt/sunnylabx/{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - data/portainer
+        - data/grafana
+        - data/prometheus
+        - data/loki
+        - data/nginx-proxy-manager
+        - data/authentik
+        - data/wazuh
+        - data/vaultwarden
+      tags:
+        - directories
+        - management
+
+- name: Configure Node #1 (thousandsunny) - Application Hub  
+  hosts: thousandsunny
+  become: yes
+  tasks:
+    - name: Configure additional firewall rules for application services
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '32400'  # Plex
+        - '8096'   # Jellyfin
+        - '3001'   # Immich
+        - '5000'   # Kavita
+        - '8989'   # Sonarr
+        - '7878'   # Radarr
+        - '9696'   # Prowlarr
+        - '6767'   # Bazarr
+        - '5055'   # Overseerr
+        - '8080'   # qBittorrent
+        - '8112'   # Deluge
+        - '11434'  # Ollama
+        - '3000'   # Gitea
+        - '8200'   # Duplicati
+        - '8080'   # Nextcloud
+      tags:
+        - security
+        - firewall
+        - applications
+
+    - name: Create application service directories
+      file:
+        path: "/opt/sunnylabx/{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - data/plex
+        - data/jellyfin
+        - data/immich
+        - data/kavita
+        - data/sonarr
+        - data/radarr
+        - data/prowlarr
+        - data/bazarr
+        - data/overseerr
+        - data/qbittorrent
+        - data/deluge
+        - data/ollama
+        - data/gitea
+        - data/duplicati
+        - data/nextcloud
+        - media/movies
+        - media/tv
+        - media/music
+        - media/books
+        - downloads/complete
+        - downloads/incomplete
+      tags:
+        - directories
+        - applications
+
+  post_tasks:
+    - name: Display deployment completion message
+      debug:
+        msg: |
+          SunnyLabX infrastructure deployment completed successfully!
+          
+          Next steps:
+          1. Reboot nodes to ensure all changes take effect
+          2. Run the Docker playbook: ansible-playbook -i ansible/hosts.ini ansible/docker-playbook.yml
+          3. Navigate to /opt/sunnylabx on each node
+          4. Deploy services using docker-compose:
+             - Node #2: cd goingmerry/<category> && docker-compose up -d
+             - Node #1: cd thousandsunny/<category> && docker-compose up -d
+          
+          Management URLs (after deployment):
+          - Portainer: https://{{ ansible_host }}:9000
+          - Grafana: https://{{ ansible_host }}:3000
+          - Nginx Proxy Manager: https://{{ ansible_host }}:8080
+      tags:
+        - info

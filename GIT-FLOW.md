@@ -176,6 +176,11 @@ Notes:
 - If using CI to apply changes, create a machine account with least privilege.
 
 13) Automation & deployment hints
+- If you use Ansible for node provisioning:
+  - Update ansible/hosts.ini with your node IPs and SSH configuration
+  - Run base setup: ansible-playbook -i ansible/hosts.ini ansible/playbook.yml
+  - Install Docker: ansible-playbook -i ansible/hosts.ini ansible/docker-playbook.yml
+  - SSH connections remain secure during firewall configuration
 - If you use Portainer / stack deployments:
   - Keep the compose files inside service folder and point Portainer to that path or use a CI job to deploy from repo.
 - If you automate node provisioning (Ansible, Terraform), reference the repo path and ensure your automation pulls main after merges.

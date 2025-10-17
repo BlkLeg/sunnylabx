@@ -7,8 +7,10 @@
 - Never use "Version" in any future docker-compose.yml scripts. This is obsolete on ALL nodes.
 - Docker compose is the correct syntax
 - The nodes should be able to speak to each other.
-- ThousandSunny media drives are mounted at /mnt/hdd-1 /mnt/hdd-2 /mnt/hdd-3 & /mnt/hdd-4
+- ThousandSunny media drives are mounted at /mnt/hdd-1 /mnt/hdd-2 /mnt/hdd-3 & /mnt/hdd-4 - use named mounts - simple structure
 - GoingMerry has ThousandSunny's drives mounted via NFS at /mnt/HDD1-4 respectively.
 - Cloudflare tunnels + WAF are used for external access
 - ISP Restrictions: No port forwarding; Unable to change DNS server via router interface (restricted)
 - Two branches will exist, the base branch, with all of the placeholder values and dir structure & main branch with real configs.
+- The docker networks should be set up logically.
+- 

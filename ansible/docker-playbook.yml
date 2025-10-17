@@ -1,0 +1,121 @@
+---
+# SunnyLabX Docker Installation Playbook
+# Installs and configures Docker on all nodes
+
+- name: Install and Configure Docker for SunnyLabX
+  hosts: docker_nodes
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Docker-related packages
+    docker_packages:
+      - docker.io
+      - docker-compose
+      - docker-compose-plugin
+    
+    # Python packages for Docker management
+    python_packages:
+      - docker
+      - docker-compose
+      - requests
+
+  pre_tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags:
+        - docker
+        - packages
+
+  tasks:
+    - name: Install Docker packages
+      apt:
+        name: "{{ docker_packages }}"
+        state: present
+      tags:
+        - docker
+        - packages
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      tags:
+        - docker
+        - users
+
+    - name: Install Python packages for Docker management
+      pip:
+        name: "{{ python_packages }}"
+        state: present
+      tags:
+        - python
+        - docker
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      tags:
+        - docker
+        - services
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version
+      changed_when: false
+      tags:
+        - docker
+        - verify
+
+    - name: Verify Docker Compose installation
+      command: docker-compose --version
+      register: docker_compose_version
+      changed_when: false
+      tags:
+        - docker
+        - verify
+
+    - name: Display Docker version information
+      debug:
+        msg: |
+          Docker installation completed successfully!
+          Docker version: {{ docker_version.stdout }}
+          Docker Compose version: {{ docker_compose_version.stdout }}
+          
+          User '{{ ansible_user }}' has been added to docker group.
+          Please log out and back in for group changes to take effect.
+          
+          SSH connections remain secure and uninterrupted.
+      tags:
+        - docker
+        - info
+
+  post_tasks:
+    - name: Test Docker functionality (as user)
+      command: docker run --rm hello-world
+      become_user: "{{ ansible_user }}"
+      register: docker_test
+      failed_when: false
+      tags:
+        - docker
+        - test
+
+    - name: Display Docker test results
+      debug:
+        msg: |
+          Docker functionality test: {{ 'PASSED' if docker_test.rc == 0 else 'FAILED - Please reboot and try again' }}
+          
+          Next steps:
+          1. If test failed, reboot the nodes: sudo reboot
+          2. After reboot, verify Docker: docker run hello-world
+          3. Navigate to /opt/sunnylabx and deploy services:
+             - Node #2: cd goingmerry/<category> && docker-compose up -d
+             - Node #1: cd thousandsunny/<category> && docker-compose up -d
+      tags:
+        - docker
+        - info

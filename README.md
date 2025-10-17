@@ -101,3 +101,162 @@ docker-compose up -d
 ```
 
 Each compose file contains placeholder configurations that can be customized with proper environment variables, volumes, and network settings.
+
+---
+
+## Ansible Infrastructure Automation
+
+SunnyLabX includes comprehensive Ansible automation for infrastructure deployment and configuration management. The Ansible setup provides automated installation and configuration of all required packages, security settings, and Docker infrastructure across both nodes.
+
+### 📁 Ansible Structure
+
+```
+ansible/
+├── hosts.ini              # Inventory with node definitions
+├── playbook.yml           # Base system setup and configuration
+└── docker-playbook.yml    # Docker installation and configuration
+```
+
+### 🏗️ Node Configuration
+
+**Node Definitions:**
+- **node1** (thousandsunny.lab.local) - Application & Content Hub
+- **node2** (goingmerry.lab.local) - Management & Control Hub
+
+**Host Groups:**
+- `[thousandsunny]` - Node #1 application workloads
+- `[goingmerry]` - Node #2 management services
+- `[docker_nodes]` - All Docker-enabled nodes
+
+### 🚀 Deployment Workflow
+
+#### Step 1: Prepare Inventory
+Edit `ansible/hosts.ini` to match your environment:
+```ini
+node1 ansible_host=your-node1-ip ansible_user=your-user
+node2 ansible_host=your-node2-ip ansible_user=your-user
+```
+
+#### Step 2: Base System Setup
+Deploy base packages, security configuration, and system setup:
+```bash
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml
+```
+
+**What this installs:**
+- Essential packages: curl, wget, git, htop, build tools
+- Security tools: aide, lynis, ufw firewall
+- System utilities: openssh-server, samba, smartmontools
+- Development tools: python3-pip, pipx
+- Repository: Clones SunnyLabX to `/opt/sunnylabx`
+
+#### Step 3: Docker Infrastructure
+Install and configure Docker on all nodes:
+```bash
+ansible-playbook -i ansible/hosts.ini ansible/docker-playbook.yml
+```
+
+**What this configures:**
+- Docker engine and Docker Compose
+- User permissions for Docker management
+- Python libraries for container automation
+- Docker service startup and testing
+
+#### Step 4: Service Deployment
+Navigate to service categories and deploy:
+```bash
+# On Node #2 (Management)
+ssh user@goingmerry.lab.local
+cd /opt/sunnylabx/goingmerry/networking
+docker-compose up -d
+
+# On Node #1 (Applications)  
+ssh user@thousandsunny.lab.local
+cd /opt/sunnylabx/thousandsunny/media
+docker-compose up -d
+```
+
+### 🔧 Advanced Usage
+
+#### Selective Deployment
+Use tags for specific components:
+```bash
+# Install only base packages
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml --tags "packages,base"
+
+# Configure only security/firewall
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml --tags "security,firewall"
+
+# Docker verification only
+ansible-playbook -i ansible/hosts.ini ansible/docker-playbook.yml --tags "verify,test"
+```
+
+#### Target Specific Nodes
+Deploy to individual nodes or groups:
+```bash
+# Management node only
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml --limit goingmerry
+
+# Application nodes only
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml --limit thousandsunny
+```
+
+#### Check Mode (Dry Run)
+Preview changes without applying:
+```bash
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml --check
+```
+
+### 🔒 Security Features
+
+- **SSH Protection**: OpenSSH rules configured before firewall activation
+- **UFW Firewall**: Automatic configuration with service-specific ports
+- **User Management**: Proper Docker group permissions
+- **Package Security**: Only essential packages installed
+- **Connection Safety**: SSH connections remain uninterrupted during deployment
+
+### 🏢 Node-Specific Configuration
+
+**Node #2 (goingmerry) - Management Hub:**
+- **Firewall Ports**: 9000 (Portainer), 3000 (Grafana), 9090 (Prometheus), 3100 (Loki), 8080 (NPM), 5000 (n8n)
+- **Data Directories**: Management service data persistence
+- **Role**: Central monitoring, security, and cluster management
+
+**Node #1 (thousandsunny) - Application Hub:**
+- **Firewall Ports**: 32400 (Plex), 8096 (Jellyfin), 3001 (Immich), ARR suite, download clients, AI services
+- **Data Directories**: Media storage, download management, application data
+- **Role**: Content services, storage, development, and AI workloads
+
+### 🔄 Maintenance and Updates
+
+```bash
+# Update system packages
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml --tags "packages"
+
+# Restart Docker services
+ansible-playbook -i ansible/hosts.ini ansible/docker-playbook.yml --tags "services"
+
+# Full redeployment
+ansible-playbook -i ansible/hosts.ini ansible/playbook.yml
+ansible-playbook -i ansible/hosts.ini ansible/docker-playbook.yml
+```
+
+### 📋 Troubleshooting
+
+**Common Issues:**
+- **SSH Connection**: Ensure SSH keys are configured and accessible
+- **Docker Group**: Log out/in after first run for Docker permissions
+- **Firewall**: SSH rules applied before UFW activation prevents lockout
+- **Permissions**: Repository cloned with correct user ownership
+
+**Verification Commands:**
+```bash
+# Test connectivity
+ansible all -i ansible/hosts.ini -m ping
+
+# Check Docker status
+ansible docker_nodes -i ansible/hosts.ini -m shell -a "docker --version"
+
+# Verify services
+ansible all -i ansible/hosts.ini -m shell -a "systemctl status docker"
+```
