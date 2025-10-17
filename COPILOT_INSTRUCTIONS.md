@@ -16,4 +16,17 @@
 - Registered domains: thousandsunny.win thousandsunny.info sunnyserverx.site | all managed via Cloudflare
 - Resource limits will be applied to all services respectively to ensure neither of the nodes are overwhelmed.
 
-## Media Locations for the ThousandSunny
+## Media Locations for the ThousandSunny - Node #1 - EACH HAVE DATA PRESENT! BE CAREFUL WITH OPERATIONS
+# TV Directories
+- /mnt/hdd-1/TV Shows
+- /mnt/hdd-2/tv-2
+- /mnt/hdd-3/tv-3
+- /mnt/hdd-4/tv
+# Movie Directories
+- /mnt/hdd-1/Movies
+- /mnt/hdd-2/movies-2
+- /mnt/hdd-3/moviess-3
+- /mnt/hdd-4/movies
+
+# Previous Immich folder - Careful! There is data in here!
+- /mnt/hdd-3/immich
