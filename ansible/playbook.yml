@@ -1,6 +1,15 @@
 ---
 # SunnyLabX Infrastructure Deployment Playbook
 # Configures both nodes with required packages and Docker setup
+#
+# Additional Playbooks:
+# - nordvpn-playbook.yml: Install and configure NordVPN for secure internet access
+# - mount-drives-playbook.yml: Configure storage drive mounting (Node 1 only)
+#
+# Usage:
+#   ansible-playbook -i hosts.ini playbook.yml
+#   ansible-playbook -i hosts.ini nordvpn-playbook.yml --ask-vault-pass
+#   ansible-playbook -i hosts.ini mount-drives-playbook.yml --limit node1
 
 - name: Setup SunnyLabX Home Lab Infrastructure
   hosts: all

@@ -39,6 +39,36 @@ find . -name "*.env.example" -exec cp {} {/.env} \;
 
 ---
 
+## ⚠️ Port Conflict Resolution
+
+**CRITICAL**: Before deployment, be aware of these resolved port conflicts:
+
+### Fixed Conflicts
+- ✅ **Zigbee2MQTT**: Moved from port 8080 → 8085 (conflicted with Nextcloud)
+- ✅ **Nexus Repository**: Moved from port 8081 → 8083 (conflicted with Redis Commander)
+
+### Remaining Placeholder Conflicts (For Future Development)
+When implementing placeholder services, be aware of these conflicts:
+- **AdGuard Home vs Grafana**: Both want port 3000 on Node #2
+- **Immich vs IoT Grafana**: Both want port 3001 on Node #1  
+- **qBittorrent vs Nextcloud**: Both want port 8080 on Node #1
+- **Kavita vs Overseerr**: Both want port 5055 on Node #1
+
+**Solution**: Refer to `PORT_REGISTRY.md` for complete port allocation plan.
+
+### Port Verification Commands
+```bash
+# Check if port is in use
+sudo netstat -tlnp | grep :8080
+
+# Check all Docker container ports
+docker ps --format "table {{.Names}}\t{{.Ports}}"
+
+# Test port connectivity
+curl -I http://localhost:8080
+```
+
+---
 ## 🚀 Phase 1: Core Infrastructure (Node #2 - goingmerry)
 
 ### Step 1.1: Network Foundation
@@ -458,37 +488,6 @@ docker-compose up -d
    - Document all service URLs and credentials
    - Create network diagram
    - Document backup and recovery procedures
-
----
-
-## ⚠️ Port Conflict Resolution
-
-**CRITICAL**: Before deployment, be aware of these resolved port conflicts:
-
-### Fixed Conflicts
-- ✅ **Zigbee2MQTT**: Moved from port 8080 → 8085 (conflicted with Nextcloud)
-- ✅ **Nexus Repository**: Moved from port 8081 → 8083 (conflicted with Redis Commander)
-
-### Remaining Placeholder Conflicts (For Future Development)
-When implementing placeholder services, be aware of these conflicts:
-- **AdGuard Home vs Grafana**: Both want port 3000 on Node #2
-- **Immich vs IoT Grafana**: Both want port 3001 on Node #1  
-- **qBittorrent vs Nextcloud**: Both want port 8080 on Node #1
-- **Kavita vs Overseerr**: Both want port 5055 on Node #1
-
-**Solution**: Refer to `PORT_REGISTRY.md` for complete port allocation plan.
-
-### Port Verification Commands
-```bash
-# Check if port is in use
-sudo netstat -tlnp | grep :8080
-
-# Check all Docker container ports
-docker ps --format "table {{.Names}}\t{{.Ports}}"
-
-# Test port connectivity
-curl -I http://localhost:8080
-```
 
 ---
 

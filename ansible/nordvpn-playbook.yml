@@ -1,0 +1,205 @@
+---
+# =============================================================================
+# SunnyLabX NordVPN Configuration Playbook
+# Purpose: Install and configure NordVPN on both nodes for secure internet access
+# Usage: ansible-playbook -i hosts.ini nordvpn-playbook.yml
+# =============================================================================
+
+- name: Install and Configure NordVPN on SunnyLabX Infrastructure
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # NordVPN configuration variables
+    nordvpn_token: "{{ vault_nordvpn_token | default('e9f2abe9f946fff202e838c99c5ca9dde9b8285e81a4390939b305b5e526f19e') }}"
+    nordvpn_server: "Los_Angeles"
+    nordvpn_dns_servers:
+      - "1.1.1.1"
+      - "8.8.8.8"
+    nordvpn_user: "{{ ansible_user }}"
+    
+    # Per-node configuration
+    node_configs:
+      node1:
+        autoconnect_server: "Los_Angeles"
+        killswitch: true
+      node2:
+        autoconnect_server: "Los_Angeles" 
+        killswitch: true
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+  tasks:
+    - name: Check if NordVPN is already installed
+      command: which nordvpn
+      register: nordvpn_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Download NordVPN installation script
+      get_url:
+        url: https://downloads.nordcdn.com/apps/linux/install.sh
+        dest: /tmp/nordvpn_install.sh
+        mode: '0755'
+        timeout: 30
+      when: nordvpn_installed.rc != 0
+
+    - name: Install NordVPN
+      shell: bash /tmp/nordvpn_install.sh
+      when: nordvpn_installed.rc != 0
+      register: nordvpn_install_result
+      notify: 
+        - restart nordvpn service
+
+    - name: Add user to nordvpn group
+      user:
+        name: "{{ nordvpn_user }}"
+        groups: nordvpn
+        append: yes
+      notify:
+        - restart nordvpn service
+
+    - name: Wait for NordVPN service to be ready
+      systemd:
+        name: nordvpnd
+        state: started
+        enabled: yes
+      register: service_status
+      until: service_status.status.ActiveState == "active"
+      retries: 10
+      delay: 5
+
+    - name: Check current NordVPN login status
+      command: nordvpn account
+      register: nordvpn_account_status
+      failed_when: false
+      changed_when: false
+      become_user: "{{ nordvpn_user }}"
+
+    - name: Login to NordVPN with token
+      command: nordvpn login --token {{ nordvpn_token }}
+      when: "'You are not logged in' in nordvpn_account_status.stdout"
+      become_user: "{{ nordvpn_user }}"
+      register: nordvpn_login
+      failed_when: 
+        - nordvpn_login.rc != 0
+        - "'already logged in' not in nordvpn_login.stderr"
+
+    - name: Configure NordVPN LAN discovery
+      command: nordvpn set lan-discovery enabled
+      become_user: "{{ nordvpn_user }}"
+      register: lan_discovery_result
+      failed_when: 
+        - lan_discovery_result.rc != 0
+        - "'is already set to enabled' not in lan_discovery_result.stdout"
+
+    - name: Configure NordVPN DNS servers
+      command: "nordvpn set dns {{ nordvpn_dns_servers | join(' ') }}"
+      become_user: "{{ nordvpn_user }}"
+      register: dns_result
+      failed_when:
+        - dns_result.rc != 0
+        - "'DNS is already set' not in dns_result.stdout"
+
+    - name: Configure NordVPN killswitch
+      command: nordvpn set killswitch {{ 'enabled' if node_configs[inventory_hostname].killswitch else 'disabled' }}
+      become_user: "{{ nordvpn_user }}"
+      register: killswitch_result
+      failed_when:
+        - killswitch_result.rc != 0
+        - "'Kill Switch is already set' not in killswitch_result.stdout"
+
+    - name: Configure NordVPN autoconnect
+      command: "nordvpn set autoconnect on {{ node_configs[inventory_hostname].autoconnect_server }}"
+      become_user: "{{ nordvpn_user }}"
+      register: autoconnect_result
+      failed_when:
+        - autoconnect_result.rc != 0
+        - "'Auto-connect is already set' not in autoconnect_result.stdout"
+
+    - name: Get current NordVPN connection status
+      command: nordvpn status
+      register: nordvpn_status
+      changed_when: false
+      become_user: "{{ nordvpn_user }}"
+
+    - name: Connect to NordVPN if not already connected
+      command: nordvpn connect {{ node_configs[inventory_hostname].autoconnect_server }}
+      when: "'Status: Connected' not in nordvpn_status.stdout"
+      become_user: "{{ nordvpn_user }}"
+      register: nordvpn_connect_result
+      failed_when:
+        - nordvpn_connect_result.rc != 0
+        - "'You are already connected' not in nordvpn_connect_result.stdout"
+
+    - name: Verify NordVPN connection
+      command: nordvpn status
+      register: final_status
+      become_user: "{{ nordvpn_user }}"
+      changed_when: false
+
+    - name: Display NordVPN status
+      debug:
+        msg: |
+          NordVPN Status for {{ inventory_hostname }}:
+          {{ final_status.stdout }}
+
+  handlers:
+    - name: restart nordvpn service
+      systemd:
+        name: nordvpnd
+        state: restarted
+        daemon_reload: yes
+
+  post_tasks:
+    - name: Clean up installation script
+      file:
+        path: /tmp/nordvpn_install.sh
+        state: absent
+
+    - name: Create NordVPN status check script
+      copy:
+        content: |
+          #!/bin/bash
+          # NordVPN status check script for {{ inventory_hostname }}
+          echo "=== NordVPN Status for {{ inventory_hostname }} ==="
+          nordvpn status
+          echo ""
+          echo "=== Public IP Check ==="
+          curl -s ifconfig.me
+          echo ""
+          echo "=== DNS Leak Test ==="
+          nslookup google.com
+        dest: /usr/local/bin/nordvpn-status
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Display post-installation information
+      debug:
+        msg: |
+          ========================================
+          NordVPN Installation Complete on {{ inventory_hostname }}
+          ========================================
+          
+          Configuration Summary:
+          - Server: {{ node_configs[inventory_hostname].autoconnect_server }}
+          - Killswitch: {{ 'Enabled' if node_configs[inventory_hostname].killswitch else 'Disabled' }}
+          - DNS Servers: {{ nordvpn_dns_servers | join(', ') }}
+          - LAN Discovery: Enabled
+          - Autoconnect: Enabled
+          
+          Useful Commands:
+          - Check status: nordvpn status
+          - Disconnect: nordvpn disconnect  
+          - Connect to specific server: nordvpn connect [server]
+          - List servers: nordvpn countries
+          - Run status script: /usr/local/bin/nordvpn-status
+          
+          Note: You may need to log out and back in for group changes to take effect.
