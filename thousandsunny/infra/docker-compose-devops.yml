@@ -147,8 +147,8 @@ services:
     volumes:
       - nexus_data:/nexus-data
     ports:
-      - "8081:8081"  # Web UI
-      - "8082:8082"  # Docker registry port
+      - "8083:8081"  # Web UI (changed from 8081 to avoid conflict)
+      - "8084:8082"  # Docker registry port (changed from 8082)
     networks:
       - devops_network
     labels:
