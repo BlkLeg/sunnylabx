@@ -13,3 +13,4 @@
 - ISP Restrictions: No port forwarding; Unable to change DNS server via router interface (restricted)
 - Two branches will exist, the base branch, with all of the placeholder values and dir structure & main branch with real configs.
 - The docker networks should be set up logically.
+- Registered domains: thousandsunny.win thousandsunny.info sunnyserverx.site | all managed via Cloudflare
