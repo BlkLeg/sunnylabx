@@ -57,12 +57,12 @@ SunnyLabX is a comprehensive self-hosted home lab infrastructure built on a dual
 ## 🏢 Node Distribution
 
 ### Node #2: goingmerry (Management & Control)
-**Role**: Central management, security, monitoring, and network services
-**Services**: 22 containers across 5 categories
+**Role**: Central management, security, monitoring, network services, and communication
+**Services**: 28 containers across 6 categories
 
 ### Node #1: thousandsunny (Applications & Content)
-**Role**: Media services, storage, development, and AI workloads
-**Services**: 15 containers across 5 categories
+**Role**: Media services, storage, development, AI workloads, and IoT automation
+**Services**: 25 containers across 7 categories
 
 ## 📁 Repository Structure
 
@@ -86,18 +86,24 @@ sunnylabx/
 │   │   └── docker-compose-security.yml
 │   ├── monitoring/                 # 📊 Observability
 │   │   └── docker-compose-monitoring.yml
-│   └── automation/                 # 🤖 Workflow Automation
-│       └── docker-compose-automation.yml
+│   ├── automation/                 # 🤖 Workflow Automation
+│   │   └── docker-compose-automation.yml
+│   └── communication/              # 💬 Communication & Collaboration
+│       └── docker-compose-matrix.yml
 │
 └── ⛵ thousandsunny/               # Node #1 (Applications)
     ├── infra/                      # 🏗️ Core Infrastructure
-    │   └── docker-compose-gitea.yml
+    │   ├── docker-compose-gitea.yml
+    │   ├── docker-compose-database.yml
+    │   └── docker-compose-devops.yml
     ├── media/                      # 🎬 Media Services
     │   └── docker-compose-media.yml
     ├── torrent/                    # 📥 Download Clients
     │   └── docker-compose-torrent.yml
     ├── ai/                         # 🧠 AI & Machine Learning
     │   └── docker-compose-ai.yml
+    ├── iot/                        # 🏠 IoT & Home Automation
+    │   └── docker-compose-homeautomation.yml
     └── agents/                     # 🤖 Remote Agents
         ├── docker-compose-portainer-agent.yml
         └── docker-compose-wazuh-agent.yml
@@ -135,12 +141,30 @@ sunnylabx/
 #### 🤖 Automation Stack
 - **n8n**: Visual workflow automation and integration platform
 
+#### 💬 Communication & Collaboration Stack
+- **Matrix Synapse**: Federated messaging server with end-to-end encryption
+- **Element Web**: Modern Matrix web client for secure communication
+- **Matrix Admin**: Administration interface for user and room management
+- **Sliding Sync**: Enhanced Matrix synchronization for better performance
+
 ### Node #1 (thousandsunny) - Application & Content Hub
 
 #### 🏗️ Infrastructure & Development Stack
-- **Gitea**: Self-hosted Git repository management
+- **Gitea**: Self-hosted Git repository management with Actions CI/CD
+- **Gitea Actions Runner**: Continuous integration and deployment pipeline
 - **Duplicati**: Automated backup solution for critical data
 - **Nextcloud AIO**: Private cloud storage and collaboration platform
+- **PostgreSQL**: Primary relational database for applications
+- **Redis**: High-performance caching and session storage
+- **pgAdmin**: Web-based PostgreSQL administration interface
+- **Redis Commander**: Web-based Redis management interface
+
+#### 🛠️ DevOps & Code Quality Stack
+- **Docker Registry**: Private container image repository
+- **Registry UI**: Web interface for Docker registry management
+- **SonarQube**: Code quality analysis and security scanning
+- **SonarQube Scanner**: CLI tool for automated code analysis
+- **Nexus Repository**: Advanced artifact and dependency management
 
 #### 🎬 Media & Entertainment Stack
 - **Plex**: Premium media server with advanced features
@@ -161,6 +185,15 @@ sunnylabx/
 #### 🧠 AI & Machine Learning Stack
 - **Ollama**: Local large language model runtime
 - **Ollama WebUI**: Web interface for interacting with AI models
+
+#### 🏠 IoT & Home Automation Stack
+- **Home Assistant**: Comprehensive smart home automation hub
+- **MQTT Broker (Mosquitto)**: IoT message broker for device communication
+- **InfluxDB**: Time-series database for IoT metrics and sensor data
+- **Zigbee2MQTT**: Zigbee device integration and management
+- **Node-RED**: Visual flow programming for IoT automation
+- **ESPHome**: ESP device firmware management and configuration
+- **IoT Grafana**: Specialized dashboards for IoT and smart home data
 
 #### 🤖 Agent Stack
 - **Portainer Agent**: Remote management agent for Node #1
@@ -235,6 +268,35 @@ cd thousandsunny/media && docker-compose up -d
 - **Modular Structure**: Category-based service deployment
 - **Tag-based Control**: Selective deployment and maintenance
 
+### Container Distribution
+- **Total Services**: 53 containerized applications
+- **Node #2 (goingmerry)**: 28 containers
+- **Node #1 (thousandsunny)**: 25 containers
+
+### Category-Based Deployment
+Each category can be deployed independently using:
+```bash
+# Deploy communication stack on Node #2
+cd goingmerry/communication && docker-compose up -d
+
+# Deploy IoT stack on Node #1  
+cd thousandsunny/iot && docker-compose up -d
+
+# Deploy database infrastructure on Node #1
+cd thousandsunny/infra && docker-compose -f docker-compose-database.yml up -d
+```
+
+### Infrastructure as Code
+- **Docker Compose**: Service definitions and container orchestration
+- **Ansible**: Node provisioning and configuration management
+- **Git**: Version control and deployment pipeline
+
+### Deployment Architecture
+- **Ansible Automation**: Two-stage deployment (base system + Docker)
+- **SSH Security**: OpenSSH protection during firewall configuration
+- **Modular Structure**: Category-based service deployment
+- **Tag-based Control**: Selective deployment and maintenance
+
 ## 🔧 Management & Operations
 
 ### Infrastructure as Code
@@ -281,10 +343,13 @@ cd thousandsunny/media && docker-compose up -d
 | **Security** | goingmerry | 5 | Identity, SIEM, IDS/IPS |
 | **Monitoring** | goingmerry | 6 | Metrics, logs, alerting |
 | **Automation** | goingmerry | 1 | Workflow orchestration |
-| **Infrastructure** | thousandsunny | 3 | Development, backup, cloud |
+| **Communication** | goingmerry | 6 | Encrypted messaging, collaboration |
+| **Infrastructure** | thousandsunny | 11 | Development, databases, CI/CD |
+| **DevOps** | thousandsunny | 5 | Code quality, registries, artifacts |
 | **Media** | thousandsunny | 9 | Streaming, automation |
 | **Torrent** | thousandsunny | 3 | Download management |
 | **AI** | thousandsunny | 2 | Machine learning |
+| **IoT** | thousandsunny | 7 | Smart home, automation, sensors |
 | **Agents** | thousandsunny | 2 | Remote management |
 
 ---
@@ -306,5 +371,10 @@ cd thousandsunny/media && docker-compose up -d
 - Grafana: `https://grafana.lab.local`  
 - Nginx Proxy Manager: `https://npm.lab.local`
 - Authentik: `https://auth.lab.local`
+- Matrix Chat: `https://chat.lab.local`
+- Home Assistant: `https://home.lab.local`
+- Gitea: `https://git.lab.local`
+- SonarQube: `https://sonar.lab.local`
+- Docker Registry UI: `https://registry-ui.lab.local`
 
 *This overview represents the current architecture as of the latest commit. For implementation details and deployment instructions, refer to the individual README files in each service category.*

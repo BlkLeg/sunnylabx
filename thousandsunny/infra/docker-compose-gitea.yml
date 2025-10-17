@@ -1,14 +1,148 @@
+# =============================================================================
+# SunnyLabX - Infrastructure & Development Stack
+# Node: thousandsunny (Node #1)
+# Category: Infrastructure & Development
+# =============================================================================
+# Services: Gitea, Gitea Actions, Duplicati, Nextcloud AIO
+# Purpose: Git hosting, CI/CD, backup, and cloud storage
+# Network: Dedicated development network with external access
+# =============================================================================
+
 services:
   # Git server and development tools (Node #1)
   gitea:
-    # Placeholder: Gitea self-hosted Git server
-    image: "ghcr.io/example/gitea:placeholder"
+    image: gitea/gitea:latest
+    container_name: gitea
+    restart: unless-stopped
+    environment:
+      USER_UID: 1000
+      USER_GID: 1000
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: gitea-postgres:5432
+      GITEA__database__NAME: ${GITEA_DB_NAME:-gitea}
+      GITEA__database__USER: ${GITEA_DB_USER:-gitea}
+      GITEA__database__PASSWD: ${GITEA_DB_PASSWORD:-changeme}
+      GITEA__server__DOMAIN: ${GITEA_DOMAIN:-git.lab.local}
+      GITEA__server__SSH_DOMAIN: ${GITEA_SSH_DOMAIN:-git.lab.local}
+      GITEA__server__ROOT_URL: https://${GITEA_DOMAIN:-git.lab.local}/
+      GITEA__actions__ENABLED: true
+      GITEA__actions__DEFAULT_ACTIONS_URL: https://github.com
+    volumes:
+      - gitea_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"
+      - "2222:22"   # SSH port for git operations
+    networks:
+      - development_network
+    depends_on:
+      - gitea-postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitea.rule=Host(`git.lab.local`)"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+
+  # PostgreSQL for Gitea
+  gitea-postgres:
+    image: postgres:16-alpine
+    container_name: gitea-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${GITEA_DB_NAME:-gitea}
+      POSTGRES_USER: ${GITEA_DB_USER:-gitea}
+      POSTGRES_PASSWORD: ${GITEA_DB_PASSWORD:-changeme}
+    volumes:
+      - gitea_postgres_data:/var/lib/postgresql/data
+    networks:
+      - development_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GITEA_DB_USER:-gitea}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=false"
+
+  # Gitea Actions Runner
+  gitea-runner:
+    image: gitea/act_runner:latest
+    container_name: gitea-runner
+    restart: unless-stopped
+    environment:
+      GITEA_INSTANCE_URL: http://gitea:3000
+      GITEA_RUNNER_REGISTRATION_TOKEN: ${GITEA_RUNNER_TOKEN:-changeme}
+      GITEA_RUNNER_NAME: sunnylabx-runner-1
+    volumes:
+      - gitea_runner_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - development_network
+    depends_on:
+      - gitea
+    labels:
+      - "traefik.enable=false"
 
   duplicati:
-    # Placeholder: Duplicati backup service
-    image: "ghcr.io/example/duplicati:placeholder"
+    image: linuxserver/duplicati:latest
+    container_name: duplicati
+    restart: unless-stopped
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: ${TZ:-UTC}
+    volumes:
+      - duplicati_config:/config
+      - duplicati_backups:/backups
+      - /var/lib/docker/volumes:/source/docker_volumes:ro
+      - ${BACKUP_SOURCE_PATH:-/home}:/source/home:ro
+    ports:
+      - "8200:8200"
+    networks:
+      - development_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.duplicati.rule=Host(`backup.lab.local`)"
+      - "traefik.http.services.duplicati.loadbalancer.server.port=8200"
 
   # Cloud & productivity (Node #1)
   nextcloud-aio:
-    # Placeholder: Nextcloud All-in-One
-    image: "ghcr.io/example/nextcloud-aio:placeholder"
+    image: nextcloud/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    restart: unless-stopped
+    environment:
+      AIO_DISABLE_BACKUP_SECTION: true  # We use Duplicati
+      APACHE_PORT: 11000
+      APACHE_IP_BINDING: 0.0.0.0
+      NEXTCLOUD_DATADIR: ${NEXTCLOUD_DATADIR:-/var/lib/docker/volumes/nextcloud_aio_nextcloud_data/_data}
+    volumes:
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8080:8080"  # Admin interface
+      - "11000:11000"  # Nextcloud
+    networks:
+      - development_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud-aio.rule=Host(`nextcloud.lab.local`)"
+      - "traefik.http.services.nextcloud-aio.loadbalancer.server.port=11000"
+
+networks:
+  development_network:
+    driver: bridge
+    name: development_network
+
+volumes:
+  gitea_data:
+    driver: local
+  gitea_postgres_data:
+    driver: local
+  gitea_runner_data:
+    driver: local
+  duplicati_config:
+    driver: local
+  duplicati_backups:
+    driver: local
+  nextcloud_aio_mastercontainer:
+    driver: local

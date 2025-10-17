@@ -1,66 +1,105 @@
-# sunnylabx
-# Service Layout:
+# SunnyLabX Home Lab Infrastructure
 
-**Network & Management - Node #2**
+A comprehensive self-hosted home lab infrastructure built on a dual-node architecture with 53 containerized services providing enterprise-grade networking, security, monitoring, media management, development tools, IoT automation, and communication platforms.
 
-- Nginx Proxy Manager - Primary reverse proxy. Manages internal traffic routing and SSL certificates.
-- AdGuard Home - Network-wide ad blocking and local DNS resolution.
-- Portainer (Controller) - Central Web UI for the entire docker cluster.
-- Cloudflare Tunnel - Secure external access without port forwarding or exposing public IPs.
+## 🏗️ Architecture Overview
 
-**Security and Identity Node - #2**
+**Total Services**: 53 containers across 12 categories
+- **Node #2 (goingmerry)**: 28 containers - Management & Control Hub
+- **Node #1 (thousandsunny)**: 25 containers - Applications & Content Hub
 
-- Authentik - Centralized identity provider for Single Sign-On (SSO) across all services.
-- Wazuh - The core Security Information and Event Management (SIEM) system.
-- CrowdSec - Collaborative Intrusion Prevention System (IPS).
-- Suricata - Network Intrusion Detection System (IDS).
-- Vaultwarden - Self-hosted password manager for securely storing credentials.
+## 🚢 Node #2 (goingmerry) - Management & Control Hub
 
-**Monitoring Node - #2**
+### **Network & External Access**
+- **Nginx Proxy Manager** - Primary reverse proxy with SSL certificate management
+- **AdGuard Home** - Network-wide ad blocking and local DNS resolution
+- **Cloudflare Tunnel** - Secure external access without port forwarding or public IP exposure
+- **Portainer Controller Proxy** - Networking assistance for container management
 
-- Grafana - The primary dashboard for visualizing all homelab metrics and logs.
-- Prometheus - Collects time-series metrics from all nodes and services.
-- Loki & Promtail - Log aggregation system for all non-security logs.
-- Uptime Kuma - Service uptime and status monitoring.
-- Watchtower - Automatically updates running Docker containers to their latest versions.
+### **Centralized Management**
+- **Portainer Controller** - Central web UI for the entire Docker cluster management
+- **Portainer Helper** - Supporting services for container orchestration
 
-**Automation - Node #2**
+### **Security & Identity**
+- **Authentik** - Enterprise SSO and identity provider for all services
+- **Wazuh** - Security Information and Event Management (SIEM) system
+- **CrowdSec** - Collaborative Intrusion Prevention System (IPS)
+- **Suricata** - Network Intrusion Detection System (IDS)
+- **Vaultwarden** - Self-hosted password manager (Bitwarden compatible)
 
-- n8n - Workflow automation engine to connect services and create automated tasks.
+### **Monitoring & Observability**
+- **Grafana** - Primary dashboard for visualizing all homelab metrics and logs
+- **Prometheus** - Time-series metrics collection from all nodes and services
+- **Loki & Promtail** - Log aggregation system for centralized logging
+- **Uptime Kuma** - Service uptime and status monitoring
+- **Watchtower** - Automated Docker container updates
+
+### **Workflow Automation**
+- **n8n** - Visual workflow automation engine for service integration
+
+### **Communication & Collaboration**
+- **Matrix Synapse** - Federated messaging server with end-to-end encryption
+- **Element Web** - Modern Matrix web client for secure communication
+- **Matrix Admin** - Administration interface for user and room management
+- **Sliding Sync** - Enhanced Matrix synchronization for better performance
 
 ---
 
-**Core Infrastructure - Node #1**
+## ⛵ Node #1 (thousandsunny) - Applications & Content Hub
 
-- Portainer - Connects this node to the main Portainer controller for remote management.
+### **Core Infrastructure & Development**
+- **Gitea** - Self-hosted Git server with Actions CI/CD pipeline
+- **Gitea Actions Runner** - Continuous integration and deployment automation
+- **Duplicati** - Automated backup solution for critical data
+- **Nextcloud AIO** - Private cloud storage and collaboration platform
 
-**Storage & Development - Node #1**
+### **Database Infrastructure**
+- **PostgreSQL** - Primary relational database for applications
+- **Redis** - High-performance caching and session storage
+- **pgAdmin** - Web-based PostgreSQL administration interface
+- **Redis Commander** - Web-based Redis management interface
 
-- Gitea - Self-hosted Git server for all homelab configuration files and personal code.
-- Duplicati - Manages scheduled backups of all critical homelab data to various storage backends.
+### **DevOps & Code Quality**
+- **Docker Registry** - Private container image repository
+- **Registry UI** - Web interface for Docker registry management
+- **SonarQube** - Code quality analysis and security scanning
+- **SonarQube Scanner** - CLI tool for automated code analysis
+- **Nexus Repository** - Advanced artifact and dependency management
 
-**Cloud & Productivity - Node #1**
+### **Media Services**
+- **Plex** - Premium media server with advanced features and transcoding
+- **Jellyfin** - Open-source media server alternative with no licensing restrictions
+- **Immich** - Self-hosted photo and video management (Google Photos alternative)
+- **Kavita** - Digital library and reader for e-books and comics
 
-- Nextcloud AIO - Private cloud for file storage, calendar, contacts, and photos.
+### **Media Automation (*arr Suite)**
+- **Prowlarr** - Manages indexers for Sonarr and Radarr integration
+- **Sonarr** - Automates TV show acquisition, organization, and monitoring
+- **Radarr** - Automates movie acquisition, organization, and monitoring
+- **Bazarr** - Manages and downloads subtitles for Sonarr and Radarr content
+- **Overseerr** - User-friendly request management system for Plex/Jellyfin
 
-**Media Services - Node #1**
+### **Download Management**
+- **qBittorrent** - Feature-rich BitTorrent client with web interface
+- **Deluge** - Lightweight BitTorrent client for specialized downloading
+- **Download Helper** - Additional download management utilities
 
-- Plex / Jellyfin - Primary media servers for streaming movies, TV shows, and music.
-- Immich - Self-hosted photo and video backup solution (Google Photos alternative).
-- Kavita - Digital library and reader for e-books and comics.
+### **AI & Machine Learning**
+- **Ollama** - Local Large Language Model (LLM) runtime for AI experimentation
+- **Ollama WebUI** - Web interface for interacting with local AI models
 
-**Media Automation (*arr Suite)**
+### **IoT & Home Automation**
+- **Home Assistant** - Comprehensive smart home automation hub
+- **MQTT Broker (Mosquitto)** - IoT message broker for device communication
+- **InfluxDB** - Time-series database for IoT metrics and sensor data
+- **Zigbee2MQTT** - Zigbee device integration and management
+- **Node-RED** - Visual flow programming for IoT automation
+- **ESPHome** - ESP device firmware management and configuration
+- **IoT Grafana** - Specialized dashboards for IoT and smart home data
 
-- Prowlarr ****- Manages indexers for Sonarr and Radarr.
-- Sonarr ****- Automates the process of finding, downloading, and organizing TV shows.
-- Radarr - Automates the process of finding, downloading, and organizing movies.
-- Bazarr - Manages and downloads subtitles for Sonarr and Radarr.
-- Overseerr - A user-friendly request management system for Plex/Jellyfin.
-- qBittorrent / Deluge - The download clients that handle the actual torrenting.
-
-**AI & Machine Learning**
-
-- Ollama + WebUI - Runs local Large Language Models (LLMs) for experimentation and use with other services.
+### **Remote Management Agents**
+- **Portainer Agent** - Remote management agent for Node #1 connectivity
+- **Wazuh Agent** - Security monitoring agent for SIEM integration
 
 ---
 
@@ -77,31 +116,43 @@ The Docker Compose files are organized by node and category to enable modular de
 | **Security** | `goingmerry/security/docker-compose-security.yml` | Authentik, Wazuh, CrowdSec, Suricata, Vaultwarden |
 | **Monitoring** | `goingmerry/monitoring/docker-compose-monitoring.yml` | Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower |
 | **Automation** | `goingmerry/automation/docker-compose-automation.yml` | n8n |
+| **Communication** | `goingmerry/communication/docker-compose-matrix.yml` | Matrix Synapse, Element Web, Matrix Admin |
 
 ### Node #1 (thousandsunny)
 
 | Category | File Path | Services |
 |----------|-----------|----------|
-| **Infrastructure** | `thousandsunny/infra/docker-compose-gitea.yml` | Gitea, Duplicati, Nextcloud AIO |
+| **Infrastructure** | `thousandsunny/infra/docker-compose-gitea.yml` | Gitea, Gitea Actions, Duplicati, Nextcloud AIO |
+| **Database** | `thousandsunny/infra/docker-compose-database.yml` | PostgreSQL, Redis, pgAdmin, Redis Commander |
+| **DevOps** | `thousandsunny/infra/docker-compose-devops.yml` | Docker Registry, Registry UI, SonarQube, Nexus |
 | **Media** | `thousandsunny/media/docker-compose-media.yml` | Plex, Jellyfin, Immich, Kavita, ARR Suite, Overseerr |
 | **Torrent** | `thousandsunny/torrent/docker-compose-torrent.yml` | qBittorrent, Deluge |
 | **AI** | `thousandsunny/ai/docker-compose-ai.yml` | Ollama, Ollama WebUI |
-| **Agents** | `thousandsunny/agents/docker-compose-portainer-agent.yml` | Portainer Agent |
+| **IoT** | `thousandsunny/iot/docker-compose-homeautomation.yml` | Home Assistant, MQTT, InfluxDB, Zigbee2MQTT, Node-RED |
+| **Agents** | `thousandsunny/agents/docker-compose-portainer-agent.yml` | Portainer Agent, Wazuh Agent |
 
 ### Usage
 
 To deploy a specific category of services:
 ```bash
-# Example: Deploy monitoring stack on Node #2
-cd goingmerry/monitoring
+# Example: Deploy communication stack on Node #2
+cd goingmerry/communication
 docker-compose up -d
 
-# Example: Deploy media services on Node #1
-cd thousandsunny/media
+# Example: Deploy IoT automation on Node #1
+cd thousandsunny/iot
 docker-compose up -d
+
+# Example: Deploy database infrastructure on Node #1
+cd thousandsunny/infra
+docker-compose -f docker-compose-database.yml up -d
+
+# Example: Deploy DevOps tools on Node #1
+cd thousandsunny/infra
+docker-compose -f docker-compose-devops.yml up -d
 ```
 
-Each compose file contains placeholder configurations that can be customized with proper environment variables, volumes, and network settings.
+Each compose file contains production-ready configurations that can be customized with proper environment variables, volumes, and network settings.
 
 ---
 

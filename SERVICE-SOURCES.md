@@ -277,6 +277,155 @@ Each service entry includes:
 - Use `.env` files for sensitive configuration
 - Implement proper backup strategies for persistent data
 - Keep images updated for security patches
+---
+
+## 💬 Node #2 (goingmerry) - Communication Services
+
+### Matrix Synapse
+- **Official Repository**: https://github.com/matrix-org/synapse
+- **Docker Compose**: https://github.com/matrix-org/synapse/tree/develop/docker
+- **Documentation**: https://matrix-org.github.io/synapse/latest/setup/installation.html
+- **Docker Hub**: https://hub.docker.com/r/matrixdotorg/synapse
+
+### Element Web
+- **Official Repository**: https://github.com/vector-im/element-web
+- **Docker Compose**: https://github.com/vector-im/element-web/blob/develop/docs/docker.md
+- **Documentation**: https://element.io/help
+- **Docker Hub**: https://hub.docker.com/r/vectorim/element-web
+
+### Matrix Admin
+- **Official Repository**: https://github.com/Awesome-Technologies/synapse-admin
+- **Docker Compose**: https://github.com/Awesome-Technologies/synapse-admin/blob/master/docker-compose.yml
+- **Documentation**: https://github.com/Awesome-Technologies/synapse-admin#readme
+- **Docker Hub**: https://hub.docker.com/r/awesometechnologies/synapse-admin
+
+---
+
+## 🗄️ Node #1 (thousandsunny) - Database Services
+
+### PostgreSQL
+- **Official Repository**: https://github.com/postgres/postgres
+- **Docker Compose**: https://github.com/docker-library/docs/tree/master/postgres
+- **Documentation**: https://www.postgresql.org/docs/
+- **Docker Hub**: https://hub.docker.com/_/postgres
+
+### Redis
+- **Official Repository**: https://github.com/redis/redis
+- **Docker Compose**: https://github.com/docker-library/docs/tree/master/redis
+- **Documentation**: https://redis.io/docs/
+- **Docker Hub**: https://hub.docker.com/_/redis
+
+### pgAdmin
+- **Official Repository**: https://github.com/pgadmin-org/pgadmin4
+- **Docker Compose**: https://www.pgadmin.org/docs/pgadmin4/latest/container_deployment.html
+- **Documentation**: https://www.pgadmin.org/docs/
+- **Docker Hub**: https://hub.docker.com/r/dpage/pgadmin4
+
+### Redis Commander
+- **Official Repository**: https://github.com/joeferner/redis-commander
+- **Docker Compose**: https://github.com/joeferner/redis-commander/blob/master/docs/docker.md
+- **Documentation**: https://github.com/joeferner/redis-commander#readme
+- **Docker Hub**: https://hub.docker.com/r/rediscommander/redis-commander
+
+---
+
+## 🛠️ Node #1 (thousandsunny) - DevOps Services
+
+### Docker Registry
+- **Official Repository**: https://github.com/distribution/distribution
+- **Docker Compose**: https://docs.docker.com/registry/deploying/
+- **Documentation**: https://docs.docker.com/registry/
+- **Docker Hub**: https://hub.docker.com/_/registry
+
+### Docker Registry UI
+- **Official Repository**: https://github.com/Joxit/docker-registry-ui
+- **Docker Compose**: https://github.com/Joxit/docker-registry-ui/blob/main/examples/ui-as-standalone/docker-compose.yml
+- **Documentation**: https://github.com/Joxit/docker-registry-ui#readme
+- **Docker Hub**: https://hub.docker.com/r/joxit/docker-registry-ui
+
+### SonarQube
+- **Official Repository**: https://github.com/SonarSource/sonarqube
+- **Docker Compose**: https://github.com/SonarSource/docker-sonarqube/blob/master/example-compose-files/sq-with-postgres/docker-compose.yml
+- **Documentation**: https://docs.sonarqube.org/latest/setup/install-server/
+- **Docker Hub**: https://hub.docker.com/_/sonarqube
+
+### SonarQube Scanner
+- **Official Repository**: https://github.com/SonarSource/sonar-scanner-cli
+- **Docker Compose**: https://docs.sonarqube.org/latest/analysis/scan/sonarscanner/
+- **Documentation**: https://docs.sonarqube.org/latest/analysis/scan/sonarscanner/
+- **Docker Hub**: https://hub.docker.com/r/sonarsource/sonar-scanner-cli
+
+### Nexus Repository Manager
+- **Official Repository**: https://github.com/sonatype/nexus-public
+- **Docker Compose**: https://github.com/sonatype/docker-nexus3/blob/master/docker-compose.yml
+- **Documentation**: https://help.sonatype.com/repomanager3
+- **Docker Hub**: https://hub.docker.com/r/sonatype/nexus3
+
+---
+
+## 🏠 Node #1 (thousandsunny) - IoT & Home Automation
+
+### Home Assistant
+- **Official Repository**: https://github.com/home-assistant/core
+- **Docker Compose**: https://github.com/home-assistant/docker
+- **Documentation**: https://www.home-assistant.io/installation/
+- **Docker Hub**: https://hub.docker.com/r/homeassistant/home-assistant
+
+### Eclipse Mosquitto (MQTT)
+- **Official Repository**: https://github.com/eclipse/mosquitto
+- **Docker Compose**: https://github.com/eclipse/mosquitto/tree/master/docker
+- **Documentation**: https://mosquitto.org/documentation/
+- **Docker Hub**: https://hub.docker.com/_/eclipse-mosquitto
+
+### InfluxDB
+- **Official Repository**: https://github.com/influxdata/influxdb
+- **Docker Compose**: https://github.com/influxdata/influxdata-docker/tree/master/influxdb
+- **Documentation**: https://docs.influxdata.com/influxdb/
+- **Docker Hub**: https://hub.docker.com/_/influxdb
+
+### Zigbee2MQTT
+- **Official Repository**: https://github.com/Koenkk/zigbee2mqtt
+- **Docker Compose**: https://www.zigbee2mqtt.io/guide/installation/02_docker.html
+- **Documentation**: https://www.zigbee2mqtt.io/
+- **Docker Hub**: https://hub.docker.com/r/koenkk/zigbee2mqtt
+
+### Node-RED
+- **Official Repository**: https://github.com/node-red/node-red
+- **Docker Compose**: https://nodered.org/docs/getting-started/docker
+- **Documentation**: https://nodered.org/docs/
+- **Docker Hub**: https://hub.docker.com/r/nodered/node-red
+
+### ESPHome
+- **Official Repository**: https://github.com/esphome/esphome
+- **Docker Compose**: https://esphome.io/guides/getting_started_command_line.html#installation
+- **Documentation**: https://esphome.io/
+- **Docker Hub**: https://hub.docker.com/r/esphome/esphome
+
+---
+
+## 🔧 Enhanced CI/CD Services
+
+### Gitea Actions
+- **Official Repository**: https://github.com/go-gitea/gitea (Actions feature)
+- **Actions Runner**: https://gitea.com/gitea/act_runner
+- **Documentation**: https://docs.gitea.io/en-us/usage/actions/overview/
+- **Docker Hub**: https://hub.docker.com/r/gitea/act_runner
+
+---
+
+## 🔧 Configuration Best Practices
+
+### Security Considerations
+- Always change default passwords in environment variables
+- Use strong, unique passwords for each service
+- Enable SSL/TLS certificates through Nginx Proxy Manager
+- Configure proper firewall rules and network segmentation
+- Regularly update container images and monitor for vulnerabilities
+
+### Performance Optimization
+- Allocate appropriate CPU and memory resources in compose files
+- Use persistent volumes for data that should survive container restarts
+- Configure proper logging levels to avoid excessive disk usage
 - Monitor resource usage and performance
 - Test configurations in development before production
 

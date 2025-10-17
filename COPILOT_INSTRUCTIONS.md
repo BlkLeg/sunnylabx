@@ -14,3 +14,6 @@
 - Two branches will exist, the base branch, with all of the placeholder values and dir structure & main branch with real configs.
 - The docker networks should be set up logically.
 - Registered domains: thousandsunny.win thousandsunny.info sunnyserverx.site | all managed via Cloudflare
+- Resource limits will be applied to all services respectively to ensure neither of the nodes are overwhelmed.
+
+## Media Locations for the ThousandSunny

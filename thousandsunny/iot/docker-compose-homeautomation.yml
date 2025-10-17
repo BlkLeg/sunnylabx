@@ -1,0 +1,196 @@
+# =============================================================================
+# SunnyLabX - IoT & Home Automation Stack
+# Node: thousandsunny (Node #1)
+# Category: IoT & Smart Home
+# =============================================================================
+# Services: Home Assistant, MQTT Broker, InfluxDB, Grafana, Zigbee2MQTT
+# Purpose: Complete smart home automation and IoT device management
+# Network: Dedicated IoT network with time-series data storage
+# =============================================================================
+
+services:
+  # Home Assistant - Smart home automation hub
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - homeassistant_config:/config
+      - /run/dbus:/run/dbus:ro
+      - /etc/localtime:/etc/localtime:ro
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0  # Zigbee coordinator (adjust as needed)
+      - /dev/ttyACM0:/dev/ttyACM0  # Alternative Zigbee coordinator
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`home.lab.local`)"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+
+  # MQTT Broker - IoT message broker
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"  # MQTT
+      - "9001:9001"  # WebSocket
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/password.txt:/mosquitto/config/password.txt:ro
+    networks:
+      - iot_network
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "test", "-m", "health_check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=false"
+
+  # InfluxDB - Time-series database for IoT metrics
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USERNAME:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD:-changeme}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-sunnylabx}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-homeassistant}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-changeme}
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    networks:
+      - iot_network
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.influxdb.rule=Host(`influxdb.lab.local`)"
+      - "traefik.http.services.influxdb.loadbalancer.server.port=8086"
+
+  # Zigbee2MQTT - Zigbee device bridge
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt:latest
+    container_name: zigbee2mqtt
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - zigbee2mqtt_data:/app/data
+      - /run/udev:/run/udev:ro
+      - ./zigbee2mqtt/configuration.yaml:/app/data/configuration.yaml:ro
+    ports:
+      - "8080:8080"  # Web interface
+    devices:
+      - /dev/ttyUSB0:/dev/ttyACM0  # Zigbee coordinator
+    networks:
+      - iot_network
+    depends_on:
+      - mosquitto
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zigbee2mqtt.rule=Host(`zigbee.lab.local`)"
+      - "traefik.http.services.zigbee2mqtt.loadbalancer.server.port=8080"
+
+  # Node-RED - Visual flow programming for IoT
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered_data:/data
+    networks:
+      - iot_network
+    user: "1000:1000"
+    depends_on:
+      - mosquitto
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nodered.rule=Host(`nodered.lab.local`)"
+      - "traefik.http.services.nodered.loadbalancer.server.port=1880"
+
+  # ESPHome - ESP device management
+  esphome:
+    image: ghcr.io/esphome/esphome:latest
+    container_name: esphome
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "6052:6052"
+    volumes:
+      - esphome_config:/config
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - iot_network
+    privileged: true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.esphome.rule=Host(`esphome.lab.local`)"
+      - "traefik.http.services.esphome.loadbalancer.server.port=6052"
+
+  # IoT Grafana - IoT-specific dashboards
+  iot-grafana:
+    image: grafana/grafana:latest
+    container_name: iot-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-changeme}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
+    ports:
+      - "3001:3000"
+    volumes:
+      - iot_grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - iot_network
+    depends_on:
+      - influxdb
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.iot-grafana.rule=Host(`iot-grafana.lab.local`)"
+      - "traefik.http.services.iot-grafana.loadbalancer.server.port=3000"
+
+networks:
+  iot_network:
+    driver: bridge
+    name: iot_network
+
+volumes:
+  homeassistant_config:
+    driver: local
+  mosquitto_data:
+    driver: local
+  mosquitto_logs:
+    driver: local
+  influxdb_data:
+    driver: local
+  influxdb_config:
+    driver: local
+  zigbee2mqtt_data:
+    driver: local
+  nodered_data:
+    driver: local
+  esphome_config:
+    driver: local
+  iot_grafana_data:
+    driver: local
