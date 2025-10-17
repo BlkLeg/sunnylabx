@@ -3,9 +3,10 @@
 
 **Network & Management - Node #2**
 
-- Nginx Proxy Manager - Primary reverse proxy. Manages all incoming traffic and SSL certificates.
+- Nginx Proxy Manager - Primary reverse proxy. Manages internal traffic routing and SSL certificates.
 - AdGuard Home - Network-wide ad blocking and local DNS resolution.
 - Portainer (Controller) - Central Web UI for the entire docker cluster.
+- Cloudflare Tunnel - Secure external access without port forwarding or exposing public IPs.
 
 **Security and Identity Node - #2**
 
@@ -71,7 +72,7 @@ The Docker Compose files are organized by node and category to enable modular de
 
 | Category | File Path | Services |
 |----------|-----------|----------|
-| **Networking** | `goingmerry/networking/docker-compose-nginx.yml` | Nginx Proxy Manager, AdGuard Home |
+| **Networking** | `goingmerry/networking/docker-compose-nginx.yml` | Nginx Proxy Manager, AdGuard Home, Cloudflare Tunnel |
 | **Management** | `goingmerry/management/docker-compose-portainer.yml` | Portainer Controller |
 | **Security** | `goingmerry/security/docker-compose-security.yml` | Authentik, Wazuh, CrowdSec, Suricata, Vaultwarden |
 | **Monitoring** | `goingmerry/monitoring/docker-compose-monitoring.yml` | Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower |
@@ -101,6 +102,31 @@ docker-compose up -d
 ```
 
 Each compose file contains placeholder configurations that can be customized with proper environment variables, volumes, and network settings.
+
+---
+
+## 🌐 External Access & Security
+
+### Cloudflare Tunnel Integration
+SunnyLabX uses **Cloudflare Tunnel** for secure external access, eliminating the need for:
+- **Port forwarding** on your router
+- **Exposing your public IP address**
+- **Opening firewall ports** to the internet
+- **Dynamic DNS** services
+- **Self-signed certificates** or certificate management
+
+**Benefits:**
+- **Zero Trust Security**: All traffic passes through Cloudflare's secure edge network
+- **DDoS Protection**: Built-in protection against distributed attacks
+- **Automatic SSL**: Cloudflare handles SSL/TLS termination and certificates
+- **Global Performance**: Cloudflare's edge network provides fast global access
+- **Private Network**: Your home lab remains completely private from the internet
+- **Authentication**: Integration with Cloudflare Access for additional security layers
+
+**Setup Requirements:**
+- Cloudflare account with a registered domain
+- Cloudflare Tunnel configured to point to your Nginx Proxy Manager
+- Domain DNS managed through Cloudflare
 
 ---
 

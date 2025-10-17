@@ -12,9 +12,20 @@ SunnyLabX is a comprehensive self-hosted home lab infrastructure built on a dual
                      └─────────┬───────┘
                                │
                      ┌─────────▼───────┐
+                     │ Cloudflare Edge │
+                     │    Network      │
+                     └─────────┬───────┘
+                               │
+                     ┌─────────▼───────┐
+                     │ Cloudflare      │
+                     │   Tunnel        │
+                     │ (Secure Access) │
+                     └─────────┬───────┘
+                               │
+                     ┌─────────▼───────┐
                      │  Nginx Proxy    │
                      │   Manager       │
-                     │  (Entry Point)  │
+                     │ (Internal Route)│
                      └─────────┬───────┘
                                │
                      ┌─────────▼───────┐
@@ -97,7 +108,8 @@ sunnylabx/
 ### Node #2 (goingmerry) - Central Management Hub
 
 #### 🌐 Networking Stack
-- **Nginx Proxy Manager**: Primary reverse proxy and SSL certificate management
+- **Cloudflare Tunnel**: Secure external access without port forwarding or public IP exposure
+- **Nginx Proxy Manager**: Internal reverse proxy and SSL certificate management
 - **AdGuard Home**: Network-wide DNS filtering and ad blocking
 - **Portainer Controller Proxy**: Networking assistance for container management
 
@@ -159,7 +171,8 @@ sunnylabx/
 ```
 ┌─────────────────── Networking Flow ───────────────────┐
 │                                                        │
-│  Internet → Nginx Proxy → AdGuard → Internal Services │
+│  Internet → Cloudflare Edge → Cloudflare Tunnel →     │
+│  Nginx Proxy → AdGuard → Internal Services            │
 │                                                        │
 └────────────────────────────────────────────────────────┘
 
@@ -197,8 +210,8 @@ sunnylabx/
 ## 🚀 Deployment Architecture
 
 ### Container Distribution
-- **Total Services**: 37 containerized applications
-- **Node #2 (goingmerry)**: 22 containers
+- **Total Services**: 38 containerized applications
+- **Node #2 (goingmerry)**: 23 containers
 - **Node #1 (thousandsunny)**: 15 containers
 
 ### Category-Based Deployment
@@ -263,7 +276,7 @@ cd thousandsunny/media && docker-compose up -d
 
 | Category | Node | Services Count | Primary Function |
 |----------|------|----------------|------------------|
-| **Networking** | goingmerry | 3 | Traffic routing, DNS, SSL |
+| **Networking** | goingmerry | 4 | External access, routing, DNS, SSL |
 | **Management** | goingmerry | 2 | Container orchestration |
 | **Security** | goingmerry | 5 | Identity, SIEM, IDS/IPS |
 | **Monitoring** | goingmerry | 6 | Metrics, logs, alerting |

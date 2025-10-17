@@ -14,3 +14,9 @@ services:
   portainer-controller-proxy:
     # Placeholder: lightweight service to assist Portainer controller networking
     image: "ghcr.io/example/portainer-proxy:placeholder"
+
+  # Cloudflare Tunnel for secure external access
+  cloudflared:
+    # Placeholder: Cloudflare Tunnel daemon for secure external access
+    # Eliminates need for port forwarding or exposing public IPs
+    image: "ghcr.io/example/cloudflared:placeholder"

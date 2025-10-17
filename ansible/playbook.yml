@@ -33,6 +33,7 @@
       - software-properties-common
       - gnupg
       - lsb-release
+      - pwgen
 
   pre_tasks:
     - name: Update apt package cache
@@ -146,6 +147,8 @@
         - security
         - firewall
         - management
+      # Note: External access is handled by Cloudflare Tunnel
+      # No need to open additional ports for external connectivity
 
     - name: Create management service directories
       file:
@@ -196,6 +199,8 @@
         - security
         - firewall
         - applications
+      # Note: External access is handled by Cloudflare Tunnel via Node #2
+      # These ports are for internal network communication only
 
     - name: Create application service directories
       file:
