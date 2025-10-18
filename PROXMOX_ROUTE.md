@@ -1,11 +1,11 @@
 # SunnyLabX Hybrid Proxmox Deployment Route
 
-This deployment guide walks you through a **hybrid virtualization approach** optimized for the SunnyLabX hardware constraints. After comprehensive analysis of 62 total services across both nodes, this route provides the optimal balance of performance, resource utilization, and management capabilities.
+This deployment guide walks you through a **hybrid virtualization approach** optimized for the SunnyLabX hardware constraints. After comprehensive analysis of 61 total services across both nodes, this route provides the optimal balance of performance, resource utilization, and management capabilities.
 
 ## 🎯 Architecture Overview
 
 **Total Deployment Time**: 6-7 hours (including Proxmox setup and service migration)
-**Services**: 62 containers across hybrid deployment
+**Services**: 61 containers across hybrid deployment
 **Approach**: Hybrid - Direct Docker + Proxmox virtualization
 
 ### Optimized Node Configuration
@@ -13,7 +13,7 @@ This deployment guide walks you through a **hybrid virtualization approach** opt
   - **38 services** running directly on Ubuntu (no virtualization overhead)
   - **Media transcoding**, large storage access, resource-intensive workloads
 - **Node #2 (GoingMerry)**: Proxmox VE 8.x - Virtualized Management Hub
-  - **Ubuntu LXC**: Docker services (18 containers)
+  - **Ubuntu Docker LXC**: 17 containers in LXC + Security Onion
   - **Security Onion LXC**: Dedicated SIEM/IDS platform
 
 ### Why Hybrid Approach?
@@ -44,20 +44,20 @@ This deployment guide walks you through a **hybrid virtualization approach** opt
 - **Hardware**: Mini PC, Intel Twin Lake-N150 (4 cores), 16GB DDR4, 500GB NVMe
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.253
-- **Services**: 18 containers in LXC + Security Onion
+- **Services**: 17 containers in LXC + Security Onion
 - **Resource Advantage**: 16GB available vs 8GB estimated need
 
 #### LXC Resource Allocation Strategy
 ```
 Total Resources: 16GB RAM, 4 CPU cores
 ├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
-├── Ubuntu Docker LXC: 10GB RAM, 2 CPU (18 services)
+├── Ubuntu Docker LXC: 9GB RAM, 2 CPU (17 services)
 ├── Security Onion LXC: 5GB RAM, 2 CPU (SIEM/IDS)
 └── Utilization: 100% RAM, 106% CPU (optimal)
 ```
 
 #### Service Categories (Node #2)
-- **Networking (4)**: Nginx Proxy, AdGuard, Cloudflare (~512MB RAM)
+- **Networking (3)**: Nginx Proxy, Cloudflare, Portainer Proxy (~512MB RAM)
 - **Monitoring (6)**: Prometheus, Grafana, Loki (~3-4GB RAM)
 - **Security (5)**: Authentik, CrowdSec, Suricata (~2-3GB RAM)
 - **Management (2)**: Portainer (~256MB RAM)
@@ -119,11 +119,7 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
 
 ### Step 2.1: Proxmox VE Installation on GoingMerry
 
-1. **Download Proxmox VE ISO**
-   ```bash
-   # From command center (TheBaratie)
-   wget https://enterprise.proxmox.com/iso/proxmox-ve_8.2-1.iso
-   ```
+1. **Proxmox VE Installation** *(Assumes ISO pre-uploaded to storage)*
 
 2. **Flash to USB and Install**
    - Boot GoingMerry from Proxmox VE USB
@@ -196,9 +192,9 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
    # local: Proxmox system (50GB)
    # local-lvm: LXC containers (400GB)
    
-   # Download Ubuntu 22.04 LTS template
-   pveam update
-   pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
+   # Ubuntu 22.04 LTS template (assumes pre-downloaded)
+   pveam update  # Update template list
+   # Template should already be available in local storage
    ```
 
 ## 🔒 Phase 3: Security Onion LXC Deployment
@@ -247,7 +243,7 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
    Management Interface: ens18
    IP Address: 192.168.0.100/24
    Gateway: 192.168.0.1
-   DNS: 192.168.0.253 (AdGuard Home)
+   DNS: 192.168.0.1 (Router DNS)
    ```
 
 3. **Security Onion Setup**
@@ -516,33 +512,6 @@ services:
         syslog-address: "tcp://192.168.0.100:514"
         tag: "nginx-proxy-manager"
 
-  adguard-home:
-    image: adguard/adguardhome:latest
-    container_name: adguard-home
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 256M
-        reservations:
-          cpus: '0.05'
-          memory: 128M
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-      - "3003:3000/tcp"  # Web interface (port changed for Proxmox compatibility)
-    volumes:
-      - adguard_work:/opt/adguardhome/work
-      - adguard_conf:/opt/adguardhome/conf
-    networks:
-      - network_services
-    logging:
-      driver: syslog
-      options:
-        syslog-address: "tcp://192.168.0.100:514"
-        tag: "adguard-home"
-
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -574,8 +543,6 @@ networks:
 volumes:
   nginx_data:
   nginx_letsencrypt:
-  adguard_work:
-  adguard_conf:
 ```
 
 ## 🔧 Phase 6: Ansible Configuration Updates
@@ -773,7 +740,6 @@ ubuntu-lxc
    - **Proxmox Web UI**: https://192.168.0.253:8006
    - **Security Onion**: https://192.168.0.100
    - **Nginx Proxy Manager**: http://192.168.0.252:81
-   - **AdGuard Home**: http://192.168.0.252:3003
    - **Grafana**: http://192.168.0.252:3000
 
 ### Step 6.2: Resource Monitoring
@@ -936,8 +902,8 @@ Management & Monitoring Workloads (Virtualization Benefits):
 │   ├── Network IDS/IPS  
 │   ├── Threat Detection
 │   └── Incident Response
-└── Ubuntu Docker LXC (18 services):
-    ├── Network Services (4): Nginx Proxy, AdGuard, Cloudflare, Portainer Proxy
+└── Ubuntu Docker LXC (17 services):
+    ├── Network Services (3): Nginx Proxy, Cloudflare, Portainer Proxy
     ├── Monitoring (6): Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower
     ├── Security (5): Authentik, CrowdSec, Suricata, Vaultwarden
     ├── Management (2): Portainer Controller

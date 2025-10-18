@@ -134,7 +134,7 @@ deploy:
 
 #### Light Services
 ```yaml
-# AdGuard Home, Cloudflare Tunnel, Portainer Agent
+# Cloudflare Tunnel, Portainer Agent
 deploy:
   resources:
     limits:

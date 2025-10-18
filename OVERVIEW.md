@@ -28,11 +28,6 @@ SunnyLabX is a comprehensive self-hosted home lab infrastructure built on a dual
                      │ (Internal Route)│
                      └─────────┬───────┘
                                │
-                     ┌─────────▼───────┐
-                     │   AdGuard Home  │
-                     │   (DNS/AdBlock) │
-                     └─────────┬───────┘
-                               │
                 ┌──────────────┼──────────────┐
                 │              │              │
         ┌───────▼──────┐      │      ┌───────▼──────┐
@@ -116,7 +111,6 @@ sunnylabx/
 #### 🌐 Networking Stack
 - **Cloudflare Tunnel**: Secure external access without port forwarding or public IP exposure
 - **Nginx Proxy Manager**: Internal reverse proxy and SSL certificate management
-- **AdGuard Home**: Network-wide DNS filtering and ad blocking
 - **Portainer Controller Proxy**: Networking assistance for container management
 
 #### 🎛️ Management Stack
@@ -205,7 +199,7 @@ sunnylabx/
 ┌─────────────────── Networking Flow ───────────────────┐
 │                                                        │
 │  Internet → Cloudflare Edge → Cloudflare Tunnel →     │
-│  Nginx Proxy → AdGuard → Internal Services            │
+│  Nginx Proxy → Internal Services                      │
 │                                                        │
 └────────────────────────────────────────────────────────┘
 
@@ -317,7 +311,7 @@ cd thousandsunny/infra && docker-compose -f docker-compose-database.yml up -d
 - **Uptime Kuma**: Service health monitoring
 
 ### Security Posture
-- **Defense in Depth**: Multiple security layers (Nginx → AdGuard → Authentik → CrowdSec)
+- **Defense in Depth**: Multiple security layers (Nginx → Authentik → CrowdSec)
 - **SIEM Integration**: Wazuh for security event correlation
 - **Network Monitoring**: Suricata for intrusion detection
 - **Credential Management**: Vaultwarden for secure password storage

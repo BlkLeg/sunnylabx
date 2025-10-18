@@ -5,11 +5,6 @@ services:
     # env, volumes, ports, and labels will be added later.
     image: "ghcr.io/example/nginx-proxy-manager:placeholder"
 
-  # Network-wide DNS & ad-blocking
-  adguard-home:
-    # Placeholder: AdGuard Home
-    image: "ghcr.io/example/adguard-home:placeholder"
-
   # Portainer controller proxy connection (if needed for network mgmt)
   portainer-controller-proxy:
     # Placeholder: lightweight service to assist Portainer controller networking

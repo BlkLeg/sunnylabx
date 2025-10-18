@@ -76,7 +76,6 @@ services:
 - **Reverse Proxy**: CPU: 0.5, RAM: 256M
 
 #### Light Services (Node #2 Preferred)
-- **AdGuard Home**: CPU: 0.25, RAM: 256M
 - **Portainer Agent**: CPU: 0.1, RAM: 128M
 - **Cloudflare Tunnel**: CPU: 0.1, RAM: 128M
 

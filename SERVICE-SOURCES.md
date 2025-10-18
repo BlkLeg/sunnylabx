@@ -28,12 +28,6 @@ Each service entry includes:
 - **Documentation**: https://nginxproxymanager.com/setup/#running-the-app
 - **Docker Hub**: https://hub.docker.com/r/jc21/nginx-proxy-manager
 
-#### AdGuard Home
-- **Official Repository**: https://github.com/AdguardTeam/AdGuardHome
-- **Docker Compose**: https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
-- **Documentation**: https://github.com/AdguardTeam/AdGuardHome/wiki
-- **Docker Hub**: https://hub.docker.com/r/adguard/adguardhome
-
 ### Management Services
 
 #### Portainer

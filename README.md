@@ -12,7 +12,6 @@ A comprehensive self-hosted home lab infrastructure built on a dual-node archite
 
 ### **Network & External Access**
 - **Nginx Proxy Manager** - Primary reverse proxy with SSL certificate management
-- **AdGuard Home** - Network-wide ad blocking and local DNS resolution
 - **Cloudflare Tunnel** - Secure external access without port forwarding or public IP exposure
 - **Portainer Controller Proxy** - Networking assistance for container management
 
@@ -111,7 +110,7 @@ The Docker Compose files are organized by node and category to enable modular de
 
 | Category | File Path | Services |
 |----------|-----------|----------|
-| **Networking** | `goingmerry/networking/docker-compose-nginx.yml` | Nginx Proxy Manager, AdGuard Home, Cloudflare Tunnel |
+| **Networking** | `goingmerry/networking/docker-compose-nginx.yml` | Nginx Proxy Manager, Cloudflare Tunnel |
 | **Management** | `goingmerry/management/docker-compose-portainer.yml` | Portainer Controller |
 | **Security** | `goingmerry/security/docker-compose-security.yml` | Authentik, Wazuh, CrowdSec, Suricata, Vaultwarden |
 | **Monitoring** | `goingmerry/monitoring/docker-compose-monitoring.yml` | Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower |

@@ -49,7 +49,6 @@ find . -name "*.env.example" -exec cp {} {/.env} \;
 
 ### Remaining Placeholder Conflicts (For Future Development)
 When implementing placeholder services, be aware of these conflicts:
-- **AdGuard Home vs Grafana**: Both want port 3000 on Node #2
 - **Immich vs IoT Grafana**: Both want port 3001 on Node #1  
 - **qBittorrent vs Nextcloud**: Both want port 8080 on Node #1
 - **Kavita vs Overseerr**: Both want port 5055 on Node #1
@@ -88,8 +87,6 @@ cd goingmerry/networking
 ```bash
 # Edit .env file
 CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token_here
-ADGUARD_USERNAME=admin
-ADGUARD_PASSWORD=your_secure_password
 ```
 
 **Deploy**:
@@ -98,20 +95,15 @@ docker-compose up -d
 ```
 
 **Verification**:
-- AdGuard Home: `http://node2-ip:3003` (initial setup) ⚠️ **Port updated to avoid conflicts**
+- Nginx Proxy Manager: `http://node2-ip:81` (admin interface)
 - Nginx Proxy Manager: `http://node2-ip:81` (admin@example.com / changeme)
 - Cloudflare Tunnel: Check tunnel status in Cloudflare dashboard
 
 **Configuration Steps**:
-1. **AdGuard Home Setup**:
-   - Complete initial wizard
-   - Configure upstream DNS (1.1.1.1, 8.8.8.8)
-   - Enable DNS-over-HTTPS
-
-2. **Nginx Proxy Manager Setup**:
+1. **Nginx Proxy Manager Setup**:
    - Change default admin credentials
-   - Configure first proxy host pointing to AdGuard (port 3000)
-   - Request SSL certificate
+   - Configure proxy hosts for internal services
+   - Request SSL certificates
 
 ### Step 1.2: Management Layer
 Deploy Portainer for centralized container management.
@@ -554,7 +546,7 @@ docker logs postgres
 ### Core Infrastructure ✅
 - [ ] All containers running without errors
 - [ ] Network connectivity between nodes
-- [ ] DNS resolution working (AdGuard)
+- [ ] DNS resolution working (Router DNS)
 - [ ] External access via Cloudflare Tunnel
 
 ### Security & Identity ✅

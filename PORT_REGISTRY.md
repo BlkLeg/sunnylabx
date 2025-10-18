@@ -35,20 +35,16 @@ This document provides a comprehensive registry of all port allocations across b
 |------|---------|----------|--------|
 | **80** | Nginx Proxy Manager | Networking | Placeholder |
 | **443** | Nginx Proxy Manager SSL | Networking | Placeholder |
-| **3000** | AdGuard Home | Networking | Placeholder |
 | **9000** | Portainer Controller | Management | Placeholder |
 | **9090** | Prometheus | Monitoring | Placeholder |
-| **3000** | Grafana | Monitoring | Placeholder ⚠️ (Port conflict with AdGuard) |
+| **3000** | Grafana | Monitoring | Placeholder |
 | **3001** | Uptime Kuma | Monitoring | Placeholder |
 | **5678** | n8n | Automation | Placeholder |
 
 ### 🔴 Identified Conflicts on Node #2
-- **Port 3000**: AdGuard Home vs Grafana
 - **Port 8080**: Element Web conflicts with multiple Node #1 services
 
 ### 🔧 Proposed Fixes for Node #2
-- **AdGuard Home**: Move to port **3003**
-- **Grafana**: Use port **3004**
 - **Element Web**: Move to port **8087**
 
 ---
@@ -151,13 +147,12 @@ This document provides a comprehensive registry of all port allocations across b
 ```yaml
 # Proposed Node #2 port assignments
 ports:
-  adguard: "3003:3000"          # DNS & ad blocking
-  grafana: "3004:3000"          # Monitoring dashboards  
+  grafana: "3000:3000"          # Monitoring dashboards  
   element-web: "8087:80"        # Matrix web client
   nginx-proxy: "81:81"          # Proxy manager admin
   portainer: "9000:9000"        # Container management
   prometheus: "9090:9090"       # Metrics collection
-  uptime-kuma: "3005:3001"      # Service monitoring
+  uptime-kuma: "3001:3001"      # Service monitoring
   n8n: "5678:5678"             # Workflow automation
 ```
 
@@ -195,7 +190,7 @@ ports:
 ### Node #2 (goingmerry)
 - **Active Ports**: 5 (Communication stack only)
 - **Reserved Ports**: 8 (Placeholders)
-- **Conflicts**: 2 (AdGuard/Grafana, Element/Node#1)
+- **Conflicts**: 1 (Element/Node#1)
 
 ### Node #1 (thousandsunny)  
 - **Active Ports**: 19 (Infrastructure, Database, DevOps, IoT)

@@ -8,9 +8,8 @@
 
 ### Optimized Service Inventory for Node #2
 
-#### Networking Services (4 services)
+#### Networking Services (3 services)
 - Nginx Proxy Manager
-- AdGuard Home  
 - Portainer Controller Proxy
 - Cloudflare Tunnel
 
@@ -105,7 +104,7 @@ Move some services to Node #1 or eliminate non-critical services:
 **Services to move to Node #1**:
 - Matrix Communication Stack (6 services) → Node #1
 - Heavy monitoring (Prometheus/Grafana) → Node #1
-- Keep only: Nginx Proxy, AdGuard, Cloudflare, Portainer, essential security
+- Keep only: Nginx Proxy, Cloudflare, Portainer, essential security
 
 #### Option 2: Two VM Configuration ✅ **RECOMMENDED**
 Skip OpnSense VM, use software firewall:
@@ -136,7 +135,7 @@ Use Proxmox LXC instead of full VMs:
 Proxmox Host (GoingMerry - 16GB RAM, 4 CPU)
 ├── Host OS: 0.5 CPU, 1GB RAM
 ├── Ubuntu Docker VM: 2.0 CPU, 10GB RAM
-│   ├── Networking: Nginx Proxy, AdGuard, Cloudflare
+│   ├── Networking: Nginx Proxy, Cloudflare, Portainer Proxy
 │   ├── Monitoring: Prometheus, Grafana, Loki
 │   ├── Management: Portainer
 │   ├── Security: Authentik, Vaultwarden

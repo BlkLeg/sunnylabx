@@ -15,7 +15,7 @@ Repository layout (current structure)
 - The repo is organized by physical nodes, with services grouped by category within each node:
   - goingmerry/           # Node #2 services
     - networking/         # Network & management services
-      - docker-compose-nginx.yml  # Nginx Proxy Manager, AdGuard Home
+      - docker-compose-nginx.yml  # Nginx Proxy Manager, Cloudflare Tunnel
     - management/         # Central management
       - docker-compose-portainer.yml  # Portainer Controller
     - security/           # Security & identity services
@@ -218,7 +218,7 @@ Notes and final reminders
 
 Appendix A — Example: networking-related file paths
 - Example paths for networking services (Node #2):
-  - goingmerry/networking/docker-compose-nginx.yml (Nginx Proxy Manager, AdGuard Home)
+  - goingmerry/networking/docker-compose-nginx.yml (Nginx Proxy Manager, Cloudflare)
   - goingmerry/networking/.env.example (environment variable template)
   - goingmerry/networking/README.md (category documentation)
 - Example paths for media services (Node #1):

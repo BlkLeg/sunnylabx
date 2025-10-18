@@ -49,10 +49,10 @@
 
 **Total Node #1 Estimated**: 17-23GB RAM, 6.6-12.6 CPU cores
 
-### Node #2 Services (18 without communication)
-1. **Networking (4)**: Nginx Proxy, AdGuard, Cloudflare
+### Node #2 Services (17 services)
+1. **Networking (3)**: Nginx Proxy, Cloudflare, Portainer Proxy
    - Resource Impact: Low-Medium
-   - Estimated: ~512MB RAM, 0.5 CPU cores
+   - Estimated: ~384MB RAM, 0.4 CPU cores
    
 2. **Monitoring (6)**: Prometheus, Grafana, Loki
    - Resource Impact: Medium-High
@@ -70,7 +70,7 @@
    - Resource Impact: Low-Medium
    - Estimated: ~512MB RAM, 0.25 CPU core
 
-**Total Node #2 Estimated**: 6.3-8.3GB RAM, 2.85-3.85 CPU cores
+**Total Node #2 Estimated**: 6.1-8.1GB RAM, 2.75-3.75 CPU cores
 
 ## Virtualization Analysis
 
