@@ -10,11 +10,11 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 
 ### Optimized Node Configuration
 - **Node #1 (ThousandSunny)**: Proxmox VE 8.x - Application & Storage Hub
-  - **Ubuntu Docker LXC**: 36 containers (media, databases, development)
+  - **Debian Docker LXC**: 39+ containers (media, databases, development, security)
   - **Resource Optimization**: Direct storage access via bind mounts
 - **Node #2 (GoingMerry)**: Proxmox VE 8.x - Management & Security Hub  
-  - **Ubuntu Docker LXC**: 13 containers (monitoring, security, networking)
-  - **Wazuh Manager VM**: Dedicated SIEM/IDS platform
+  - **Debian Docker LXC**: 9 containers (monitoring, networking) - communication eliminated
+  - **OPNsense Firewall VM**: Advanced network security with NordVPN
 
 ### Why Dual Proxmox Approach?
 - **Unified Management**: Single interface for both nodes via Proxmox cluster
@@ -29,14 +29,15 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Hardware**: Dell XPS 8500, i7-3770 (4c/8t), 12GB DDR3, 1TB SSD + 9TB HDD
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.254
-- **Services**: 36 containers in Ubuntu LXC (optimized from 38)
-- **Resource Challenge**: 12GB available vs 14-18GB estimated need (reduced through elimination + Plex/Jellyfin mutual exclusivity)
+- **Services**: 39+ containers in Debian LXC (includes Dockerized Wazuh SIEM)
+- **Resource Challenge**: 12GB available vs 12GB estimated need (optimized with SWAP buffer)
 - **Strategy**: LXC deployment with aggressive resource limits, direct storage bind mounts
 
 #### Service Categories (Node #1) - Optimized
 - **Media Services (9)**: Plex OR Jellyfin (backup), ARR Suite, Immich (~5-7GB RAM) - *Jellyfin only runs when Plex is down*
 - **IoT/Home Automation (7)**: Home Assistant, MQTT, InfluxDB (~2-3GB RAM)
 - **Infrastructure (13)**: Databases, DevOps, Gitea, Nextcloud (~4-5GB RAM) - **Duplicati eliminated**
+- **Security/SIEM (3)**: Wazuh Manager, Wazuh Indexer, Wazuh Dashboard (~1.5GB RAM)
 - **AI Services (2)**: Ollama, WebUI (~4-6GB RAM if enabled)
 - **Torrent/Download (3)**: qBittorrent, Deluge (~1GB RAM)
 - **Agents (2)**: **Portainer Agent eliminated**, Wazuh Agent (~128MB RAM)
@@ -45,25 +46,25 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Hardware**: Mini PC, Intel Twin Lake-N150 (4 cores), 16GB DDR4, 500GB NVMe
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.253
-- **Services**: 13 containers in LXC + Wazuh Manager VM (optimized from 17)
-- **Resource Advantage**: 16GB available vs 6GB estimated need (optimized)
+- **Services**: 9 containers in Debian LXC + OPNsense VM (communication stack eliminated)
+- **Resource Advantage**: 16GB available vs 4GB estimated need (significant headroom)
 
-#### VM/LXC Resource Allocation Strategy (Updated with Dockerized Wazuh)
+#### VM/LXC Resource Allocation Strategy (Debian + Communication Elimination)
 ```
 Total Resources: 16GB RAM, 4 CPU cores, 25GB SWAP
 ├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
-├── Ubuntu Docker LXC: 14GB RAM, 3.25 CPU (39+ services - includes Wazuh stack)
+├── Debian Docker LXC: 14GB RAM, 3.25 CPU (39+ services - includes Wazuh stack)
 ├── OPNsense Firewall VM: 1GB RAM, 0.5 CPU (NordVPN distribution)
 └── Utilization: 100% RAM, 100% CPU + 25GB SWAP buffer
 ```
 
-#### Service Categories (Node #2) - Optimized with Enhanced Security
+#### Service Categories (Node #2) - Communication Stack Eliminated
 - **Networking (2)**: Nginx Proxy, Cloudflare (~256MB RAM) - **Portainer Proxy eliminated**
-- **Monitoring (4)**: Prometheus (reduced scope), Grafana, Loki, Promtail (~2-3GB RAM) - **Uptime Kuma, Watchtower eliminated**
-- **Security (8)**: Authentik, CrowdSec, Suricata, Vaultwarden, Wazuh Manager, Wazuh Indexer, Wazuh Dashboard (~6-7GB RAM)
-- **Security Enhancement**: OPNsense VM + Dockerized Wazuh SIEM stack
+- **Monitoring (6)**: Prometheus, Grafana, Loki, Promtail, AlertManager, Node-Exporter (~2-3GB RAM) - **Uptime Kuma, Watchtower eliminated**
+- **Security (2)**: Authentik, CrowdSec (~1GB RAM) - **Communication services eliminated (Matrix, Discord, SMTP, Webhooks)**
+- **Security Enhancement**: OPNsense VM + Dockerized Wazuh SIEM stack (runs on Node #1)
 - **Management**: **Portainer entirely eliminated** (replaced by native Proxmox management)
-- **Automation (1)**: n8n (~512MB RAM)
+- **Automation (1)**: n8n (~512MB RAM) - **Total: 9 services (down from 13)**
 
 ## 🔧 Phase 1: Node #1 Proxmox Installation (ThousandSunny)
 
@@ -147,8 +148,8 @@ Total Resources: 16GB RAM, 4 CPU cores, 25GB SWAP
 ### Prerequisites: Required ISO Files
 Before starting, ensure the following ISO files are available:
 - **Proxmox VE 8.2-1 ISO**: Downloaded and flashed to USB drive for both node installations
-- **Ubuntu Server 22.04 LTS ISO**: For Wazuh Manager VM installation  
-- **Ubuntu Cloud Image**: `jammy-server-cloudimg-amd64.img` uploaded to Proxmox storage for LXCs
+- **OPNsense ISO**: Latest release for firewall VM installation  
+- **Debian Cloud Image**: `debian-12-generic-amd64.tar.xz` uploaded to Proxmox storage for LXCs
 
 *Note: This guide assumes ISOs are pre-downloaded and available locally to avoid extended download times during deployment.*
 
@@ -743,13 +744,13 @@ Before starting, ensure the following ISO files are available:
 
 ### Step 4.1: Node #1 (ThousandSunny) LXC Deployment
 
-1. **Primary Ubuntu LXC for Docker Services**
+1. **Primary Debian LXC for Docker Services**
    ```yaml
    CT ID: 101
-   Name: ubuntu-docker-main
-   Template: Ubuntu 22.04 LTS
+   Name: debian-docker-main
+   Template: Debian 12 (Bookworm)
    CPU: 4 cores
-   RAM: 8GB (optimized from 10GB due to Proxmox efficiency)
+   RAM: 10GB (includes Dockerized Wazuh SIEM stack)
    Disk: 200GB (on local-lvm)
    Network: vmbr0 (bridged)
    Static IP: 192.168.0.251/24
@@ -761,8 +762,8 @@ Before starting, ensure the following ISO files are available:
    ```bash
    # On ThousandSunny Proxmox (192.168.0.254)
    # Create LXC via web UI or CLI:
-   pct create 101 local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
-     --hostname ubuntu-docker-main \
+   pct create 101 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
+     --hostname debian-docker-main \
      --memory 8192 \
      --swap 12288 \
      --cores 4 \
@@ -820,8 +821,8 @@ Before starting, ensure the following ISO files are available:
 2. **Create and Configure Secondary LXC**
    ```bash
    # On GoingMerry Proxmox (192.168.0.253)
-   pct create 102 local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
-     --hostname ubuntu-docker-secondary \
+   pct create 102 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
+     --hostname debian-docker-secondary \
      --memory 6144 \
      --swap 12800 \
      --cores 2 \
@@ -1273,34 +1274,34 @@ goingmerry
   
   vars:
     lxc_configs:
-      ubuntu-docker-main:
+      debian-docker-main:
         vmid: 101
         node: thousandsunny
         ip: "192.168.0.251"
-        memory: 8192
+        memory: 10240
         swap: 12288
         cores: 4
         disk: 200
-        services_count: 36
-      ubuntu-docker-secondary:
+        services_count: 39
+      debian-docker-secondary:
         vmid: 102
         node: goingmerry
         ip: "192.168.0.252"
-        memory: 6144
+        memory: 5120
         swap: 12800
         cores: 2
         disk: 100
-        services_count: 13
+        services_count: 9
 
   tasks:
     - name: Download Ubuntu LXC template
-      command: pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
+      command: pveam download local debian-12-standard_12.2-1_amd64.tar.zst
       register: template_download
       failed_when: template_download.rc != 0 and 'already exists' not in template_download.stderr
 
     - name: Create LXC containers
       shell: |
-        pct create {{ item.value.vmid }} local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
+        pct create {{ item.value.vmid }} local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
           --hostname {{ item.key }} \
           --memory {{ item.value.memory }} \
           --swap {{ item.value.swap }} \
@@ -1677,28 +1678,28 @@ goingmerry
    ssh shawnji@192.168.0.252 "docker run --rm -v nginx_data:/data -v $(pwd):/backup ubuntu tar czf /backup/nginx_backup.tar.gz /data"
    ```
 
-## 📋 Dual Proxmox Cluster Resource Summary (Enhanced with Dockerized Wazuh)
+## 📋 Dual Proxmox Cluster Resource Summary (Debian + Communication Elimination)
 
-### Node #1 (ThousandSunny) - Proxmox VE + Ubuntu LXC - 12GB RAM, 4 CPU cores, 12GB SWAP
+### Node #1 (ThousandSunny) - Proxmox VE + Debian LXC - 12GB RAM, 4 CPU cores, 12GB SWAP
 ```
 Optimized Proxmox Deployment with Dockerized Wazuh:
 ├── Proxmox Host: 2GB RAM, 0.5 CPU cores
-├── Ubuntu Docker LXC: 10GB RAM (12GB SWAP), 3.5 CPU cores (39+ services including Wazuh)
+├── Debian Docker LXC: 10GB RAM (12GB SWAP), 3.5 CPU cores (39+ services including Wazuh)
 ├── Available for expansion: 0GB RAM, 0 CPU cores + SWAP buffer
 └── Utilization: 83% RAM (improved from 117%), 87.5% CPU (improved efficiency)
 ```
 
-### Node #2 (GoingMerry) - Proxmox VE + Ubuntu LXC - 16GB RAM, 4 CPU cores, 13GB SWAP
+### Node #2 (GoingMerry) - Proxmox VE + Debian LXC - 16GB RAM, 4 CPU cores, 13GB SWAP
 ```
-Enhanced Security Proxmox Deployment:
+Enhanced Security Proxmox Deployment (Communication Stack Eliminated):
 ├── Proxmox Host: 2GB RAM, 0.5 CPU cores  
 ├── OPNsense Firewall VM: 1GB RAM, 0.5 CPU cores (NordVPN distribution)
-├── Ubuntu Docker LXC: 6GB RAM (13GB SWAP), 2 CPU cores (13 services)
-├── Available for expansion: 7GB RAM, 1 CPU core + SWAP buffer
-└── Utilization: 56% RAM, 75% CPU (excellent headroom with enhanced security)
+├── Debian Docker LXC: 5GB RAM (13GB SWAP), 2 CPU cores (9 services - communication eliminated)
+├── Available for expansion: 8GB RAM, 1 CPU core + SWAP buffer
+└── Utilization: 50% RAM, 75% CPU (excellent headroom + 1GB saved from communication elimination)
 ```
 
-### Optimized Service Distribution (51-53 Services Total)
+### Optimized Service Distribution (48+ Services Total - Communication Eliminated)
 
 #### Node #1 (ThousandSunny) - 39+ Services in LXC (Including Dockerized Wazuh)
 ```
@@ -1719,16 +1720,16 @@ Storage & Media-Intensive Workloads + Security:
 └── Total: 39+ services (increased from 36, but better resource efficiency)
 ```
 
-#### Node #2 (GoingMerry) - 13 Services in LXC
+#### Node #2 (GoingMerry) - 9 Services in LXC (Communication Stack Eliminated)
 ```
-Network & Management Workloads (Optimized):
-├── Network Services (3): Nginx Proxy, Cloudflare DDNS, Traefik
-│   └── Note: AdGuard Home eliminated
+Network & Management Workloads (Streamlined):
+├── Network Services (2): Nginx Proxy, Cloudflare DDNS
+│   └── Note: AdGuard Home eliminated, Traefik consolidated
 ├── Monitoring (6): Prometheus, Grafana, Loki, Promtail, AlertManager, Node-Exporter
 │   └── Note: Portainer, Duplicati, Watchtower, Uptime Kuma eliminated
-├── Communication (4): Matrix, Discord Bot, SMTP Relay, Webhook services
-│   └── Benefits: Network-optimized services on faster hardware
-└── Total: 13 services (reduced from 17)
+├── Automation (1): n8n workflow automation
+│   └── Communication Services ELIMINATED: Matrix, Discord Bot, SMTP Relay, Webhooks (saves ~1GB RAM)
+└── Total: 9 services (reduced from 13, communication overkill eliminated)
 ```
 
 #### Dockerized Wazuh SIEM Stack (Node #1 LXC)
@@ -1810,7 +1811,7 @@ Resource Benefits:
 └── Improved performance isolation
 ```
 
-## 🏁 Implementation Summary (Enhanced Security Edition)
+## 🏁 Implementation Summary (Debian + Streamlined Services Edition)
 
 ### **Why Dual Proxmox vs Hybrid Approach?**
 
@@ -1818,15 +1819,18 @@ Resource Benefits:
 - ❌ **Management Complexity**: Two different management paradigms
 - ❌ **Service Duplication**: Portainer, Uptime Kuma, Duplicati redundancy
 - ❌ **Resource Waste**: 1.75GB in management overhead
+- ❌ **Communication Overkill**: Matrix, Discord, SMTP services rarely used
 - ❌ **Backup Inconsistency**: Different backup strategies per node
 - ❌ **Security Gaps**: No unified VPN distribution or advanced firewall
 
-**Dual Proxmox Solutions**:
+**Dual Proxmox + Debian Solutions**:
 - ✅ **Unified Management**: Single Proxmox cluster interface
 - ✅ **Service Consolidation**: Native Proxmox capabilities eliminate redundancy
-- ✅ **Resource Efficiency**: 1.75GB freed for application services
+- ✅ **Resource Efficiency**: 6.75GB freed (5.75GB + 1GB communication elimination)
+- ✅ **Debian Stability**: More stable and lightweight than Ubuntu for containers
 - ✅ **Professional Operations**: Enterprise-grade virtualization management
 - ✅ **Enhanced Security**: Dockerized Wazuh SIEM + OPNsense VM with NordVPN distribution
+- ✅ **Streamlined Services**: Communication stack eliminated (overkill removed)
 - ✅ **SWAP Buffer**: 25GB SWAP across both nodes for memory stability
 - ✅ **Containerization Excellence**: Wazuh moved from VM to Docker for better practice
 - ✅ **Scalability**: Easy addition of new nodes to cluster
@@ -1855,18 +1859,19 @@ Resource Benefits:
 ## 🚀 Migration Path (Enhanced)
 
 ### Phase 1: Prepare Node #2 (GoingMerry)
-1. **Backup existing Ubuntu services** from GoingMerry
+1. **Backup existing services** from GoingMerry
 2. **Install Proxmox VE** (fresh installation recommended)
 3. **Deploy OPNsense VM** with NordVPN configuration
-4. **Create LXC containers** with proper resource allocation and SWAP
-5. **Migrate services** one category at a time
+4. **Create Debian LXC containers** with proper resource allocation and SWAP
+5. **Migrate essential services** (eliminate communication stack overkill)
 
 ### Phase 2: Optimize Node #1 (ThousandSunny)  
 1. **System tuning** for increased container density
-2. **Resource limit implementation** across all services
-3. **Storage optimization** for media and database workloads
-4. **SWAP configuration** for memory stability
-5. **Monitoring setup** for resource usage tracking
+2. **Deploy Debian LXC** with Dockerized Wazuh SIEM stack
+3. **Resource limit implementation** across all services
+4. **Storage optimization** for media and database workloads
+5. **SWAP configuration** for memory stability
+6. **Monitoring setup** for resource usage tracking
 
 ### Phase 3: Security Integration & Testing
 1. **Wazuh Manager deployment** and agent installation
