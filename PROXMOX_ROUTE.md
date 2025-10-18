@@ -117,9 +117,17 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
 
 ## 🔧 Phase 2: Proxmox Installation & Configuration (Node #2)
 
+### Prerequisites: Required ISO Files
+Before starting, ensure the following ISO files are available:
+- **Proxmox VE 8.2-1 ISO**: Downloaded and flashed to USB drive for installation
+- **Security Onion ISO**: `securityonion-2.3.190-20240214.iso` uploaded to Proxmox storage
+- **Ubuntu Cloud Image**: `jammy-server-cloudimg-amd64.img` uploaded to Proxmox storage
+
+*Note: This guide assumes ISOs are pre-downloaded and available locally to avoid extended download times during deployment.*
+
 ### Step 2.1: Proxmox VE Installation on GoingMerry
 
-1. **Proxmox VE Installation** *(Assumes ISO pre-uploaded to storage)*
+1. **Proxmox VE Installation** *(Uses pre-prepared USB drive)*
 
 2. **Flash to USB and Install**
    - Boot GoingMerry from Proxmox VE USB
@@ -139,6 +147,19 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
    # Add no-subscription repository
    echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-no-subscription.list
    apt update
+   ```
+
+4. **Upload Required ISOs to Proxmox Storage**
+   ```bash
+   # Access Proxmox web interface: https://192.168.0.253:8006
+   # Navigate to: Datacenter > Storage > local > ISO Images
+   # Upload the following files:
+   # - securityonion-2.3.190-20240214.iso
+   # - jammy-server-cloudimg-amd64.img
+   # 
+   # Alternative: Copy via SCP if files are on local network
+   # scp securityonion-2.3.190-20240214.iso root@192.168.0.253:/var/lib/vz/template/iso/
+   # scp jammy-server-cloudimg-amd64.img root@192.168.0.253:/var/lib/vz/template/iso/
    ```
 
 ### Step 2.2: Network Configuration
@@ -192,9 +213,10 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
    # local: Proxmox system (50GB)
    # local-lvm: LXC containers (400GB)
    
-   # Ubuntu 22.04 LTS template (assumes pre-downloaded)
+   # Verify Ubuntu 22.04 LTS template availability
    pveam update  # Update template list
-   # Template should already be available in local storage
+   pveam available | grep ubuntu-22.04  # Should show pre-uploaded template
+   # If not found, upload jammy-server-cloudimg-amd64.img via web UI
    ```
 
 ## 🔒 Phase 3: Security Onion LXC Deployment
@@ -230,9 +252,9 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
    # Update system
    apt update && apt upgrade -y
    
-   # Download and install Security Onion
-   wget https://download.securityonion.net/file/securityonion/securityonion-2.3.190-20240214.iso
-   # Mount and install Security Onion components
+   # Security Onion ISO assumed to be pre-uploaded to Proxmox storage
+   # Navigate to Datacenter > Storage > local > ISO Images in Proxmox UI
+   # Verify securityonion-2.3.190-20240214.iso is available
    ```
 
 ### Step 2.2: Security Onion Configuration
@@ -621,11 +643,15 @@ ubuntu-lxc
           - cloud-init
         state: present
         
-    - name: Download Ubuntu Server template
-      get_url:
-        url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-        dest: "/var/lib/vz/template/iso/ubuntu-22.04-server-cloudimg-amd64.img"
-        mode: '0644'
+    - name: Verify Ubuntu Server template exists
+      stat:
+        path: "/var/lib/vz/template/iso/ubuntu-22.04-server-cloudimg-amd64.img"
+      register: ubuntu_template
+      
+    - name: Fail if Ubuntu template not found
+      fail:
+        msg: "Ubuntu cloud image not found. Please upload jammy-server-cloudimg-amd64.img to Proxmox storage."
+      when: not ubuntu_template.stat.exists
         
     - name: Create Security Onion VM
       proxmox_kvm:
