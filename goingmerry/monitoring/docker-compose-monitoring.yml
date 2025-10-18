@@ -1,19 +1,107 @@
+```dockercompose
+# Optimized Monitoring Stack for Dual Proxmox Architecture
+# Uptime Kuma & Watchtower eliminated - replaced by Proxmox native monitoring
 services:
-  # Monitoring stack (Node #2) - split from other node files
+  # Core monitoring stack (Node #2 LXC)
   prometheus:
-    image: "ghcr.io/example/prometheus:placeholder"
+    image: "prom/prometheus:latest"
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
 
   grafana:
-    image: "ghcr.io/example/grafana:placeholder"
+    image: "grafana/grafana:latest"
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - monitoring
 
   loki:
-    image: "ghcr.io/example/loki:placeholder"
+    image: "grafana/loki:latest"
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./loki.yml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
 
   promtail:
-    image: "ghcr.io/example/promtail:placeholder"
+    image: "grafana/promtail:latest"
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./promtail.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
 
-  uptime-kuma:
-    image: "ghcr.io/example/uptime-kuma:placeholder"
+  # Alert management
+  alertmanager:
+    image: "prom/alertmanager:latest"
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - monitoring
 
-  watchtower:
-    image: "ghcr.io/example/watchtower:placeholder"
+  # Node monitoring for Proxmox hosts
+  node-exporter:
+    image: "prom/node-exporter:latest"
+    container_name: node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  alertmanager_data:
+```

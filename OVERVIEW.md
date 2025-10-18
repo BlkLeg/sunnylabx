@@ -1,10 +1,13 @@
-# SunnyLabX - Home Lab Infrastructure Overview
+# SunnyLabX - Dual Proxmox Home Lab Infrastructure Overview
 
 ## 🏗️ Architecture Summary
 
-SunnyLabX is a comprehensive self-hosted home lab infrastructure built on a dual-node architecture. The lab provides enterprise-grade services for networking, security, monitoring, media management, development, and AI experimentation through containerized services managed with Docker Compose.
+SunnyLabX is a comprehensive self-hosted home lab infrastructure built on a **dual Proxmox virtualization cluster**. The lab provides enterprise-grade services for networking, security, monitoring, media management, development, and AI experimentation through optimized containerized services deployed in LXC containers with native Proxmox management capabilities.
 
-## 🌐 Network Architecture
+**Total Services**: 48-50 containers (optimized from 53) across dual Proxmox nodes
+**Service Optimization**: 2.75-3.75GB RAM freed through elimination of redundant management services
+
+## 🌐 Dual Proxmox Cluster Architecture
 
 ```
                      ┌─────────────────┐
@@ -25,28 +28,39 @@ SunnyLabX is a comprehensive self-hosted home lab infrastructure built on a dual
                      ┌─────────▼───────┐
                      │  Nginx Proxy    │
                      │   Manager       │
-                     │ (Internal Route)│
+                     │ (Node #2 LXC)   │
                      └─────────┬───────┘
                                │
                 ┌──────────────┼──────────────┐
                 │              │              │
         ┌───────▼──────┐      │      ┌───────▼──────┐
         │   Node #2    │      │      │   Node #1    │
-        │ (goingmerry) │      │      │(thousandsunny)│
+        │ (GoingMerry) │      │      │(ThousandSunny)│
+        │ Proxmox VE   │      │      │ Proxmox VE   │
         │              │      │      │              │
         │ ┌──────────┐ │      │      │ ┌──────────┐ │
-        │ │Management│ │      │      │ │ Media    │ │
-        │ │Security  │ │      │      │ │ Storage  │ │
-        │ │Monitor   │ │      │      │ │ AI/ML    │ │
-        │ │Network   │ │      │      │ │ Dev      │ │
-        │ │Automation│ │      │      │ │ Agents   │ │
+        │ │Ubuntu LXC│ │      │      │ │Ubuntu LXC│ │
+        │ │13 Svcs   │ │      │      │ │36 Svcs   │ │
+        │ │Security  │ │      │      │ │ Media    │ │
+        │ │Monitor   │ │      │      │ │ Storage  │ │
+        │ │Network   │ │      │      │ │ AI/ML    │ │
+        │ │Automation│ │      │      │ │ Dev/IoT  │ │
+        │ └──────────┘ │      │      │ └──────────┘ │
+        │ ┌──────────┐ │      │      │ ┌──────────┐ │
+        │ │Wazuh VM  │ │      │      │ │ Direct   │ │
+        │ │4GB SIEM  │ │      │      │ │ HDD      │ │
+        │ │Security  │ │      │      │ │ Access   │ │
         │ └──────────┘ │      │      │ └──────────┘ │
         └──────────────┘      │      └──────────────┘
                                │
-                     ┌─────────▼───────┐
-                     │ Portainer Mgmt  │
-                     │  (Centralized)  │
-                     └─────────────────┘
+                     ┌─────────▼───────────────┐
+                     │ Proxmox Cluster Mgmt    │
+                     │ (Unified Web Interface) │
+                     │ ✅ Native VM/LXC Mgmt   │
+                     │ ✅ Integrated Backups   │
+                     │ ✅ Live Migration       │
+                     │ ❌ Portainer Eliminated │
+                     └─────────────────────────┘
 ```
 
 ## 🏢 Node Distribution

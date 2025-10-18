@@ -1,12 +1,57 @@
+# Media Services for Node #1 (ThousandSunny) - Proxmox LXC
+# Optimized for dual Proxmox architecture with Plex/Jellyfin mutual exclusivity
 services:
-  # Media servers
+  # Primary media server (always active)
   plex:
-    # Placeholder: Plex Media Server
-    image: "ghcr.io/example/plex:placeholder"
+    image: "linuxserver/plex:latest"
+    container_name: plex
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+      - VERSION=docker
+      - PLEX_CLAIM=${PLEX_CLAIM_TOKEN}
+    volumes:
+      - plex_config:/config
+      - /mnt/HDD1/media:/media
+      - /mnt/HDD2/media:/media2
+      - /tmp/plex:/transcode
+    ports:
+      - "32400:32400"
+    networks:
+      - media_network
+    devices:
+      - /dev/dri:/dev/dri  # GPU passthrough for hardware transcoding
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.plex.rule=Host(`plex.lab.local`)"
+      - "traefik.http.services.plex.loadbalancer.server.port=32400"
 
+  # Backup media server (only runs when Plex fails - saves 1-2GB RAM)
   jellyfin:
-    # Placeholder: Jellyfin media server (alternative to Plex)
-    image: "ghcr.io/example/jellyfin:placeholder"
+    image: "linuxserver/jellyfin:latest"
+    container_name: jellyfin
+    restart: "no"  # Disabled by default - manual start only
+    profiles:
+      - backup  # Docker Compose profile for conditional startup
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - jellyfin_config:/config
+      - /mnt/HDD1/media:/media
+      - /mnt/HDD2/media:/media2
+      - /tmp/jellyfin:/cache
+    ports:
+      - "8096:8096"
+    networks:
+      - media_network
+    devices:
+      - /dev/dri:/dev/dri  # GPU passthrough for hardware transcoding
+    labels:
+      - "traefik.enable=false"  # Only enable when active
 
   # Photo/video backup
   immich:

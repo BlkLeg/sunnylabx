@@ -1,6 +1,6 @@
-# SunnyLabX Port Allocation Registry
+# SunnyLabX Dual Proxmox Port Allocation Registry
 
-This document provides a comprehensive registry of all port allocations across both nodes to prevent conflicts and ensure proper service accessibility.
+This document provides a comprehensive registry of all port allocations across the dual Proxmox cluster to prevent conflicts and ensure proper service accessibility. Updated for optimized service architecture.
 
 ## 🎯 Port Allocation Strategy
 
@@ -17,41 +17,46 @@ This document provides a comprehensive registry of all port allocations across b
 
 ---
 
-## 🚢 Node #2 (goingmerry) - Management & Control Hub
+## 🚢 Node #2 (GoingMerry) - Proxmox Management & Security Hub
 
-### Current Port Allocations
+### Current Port Allocations (13 Services in LXC)
 
 | Port | Service | Container | Category | Purpose |
 |------|---------|-----------|----------|---------|
+| **80** | Nginx Proxy Manager | nginx-proxy-manager | Networking | HTTP reverse proxy |
+| **443** | Nginx Proxy Manager SSL | nginx-proxy-manager | Networking | HTTPS reverse proxy |
+| **81** | Nginx Admin | nginx-proxy-manager | Networking | Admin interface |
+| **9090** | Prometheus | prometheus | Monitoring | Metrics collection |
+| **3000** | Grafana | grafana | Monitoring | Visualization dashboard |
+| **3100** | Loki | loki | Monitoring | Log aggregation |
+| **9093** | AlertManager | alertmanager | Monitoring | Alert routing |
+| **9100** | Node Exporter | node-exporter | Monitoring | System metrics |
+| **5678** | n8n | n8n | Automation | Workflow automation |
 | **8008** | Matrix Synapse | matrix-synapse | Communication | Matrix homeserver API |
 | **8009** | Matrix Sliding Sync | matrix-sliding-sync | Communication | Enhanced Matrix sync |
-| **8080** | Element Web | element-web | Communication | Matrix web client |
+| **8087** | Element Web | element-web | Communication | Matrix web client |
 | **8090** | Matrix Admin | matrix-admin | Communication | Matrix administration |
 | **8448** | Matrix Federation | matrix-synapse | Communication | Matrix federation port |
 
-### Reserved Placeholder Ports (Need Implementation)
+### **Dedicated Wazuh Manager VM Ports**
 
-| Port | Service | Category | Status |
-|------|---------|----------|--------|
-| **80** | Nginx Proxy Manager | Networking | Placeholder |
-| **443** | Nginx Proxy Manager SSL | Networking | Placeholder |
-| **9000** | Portainer Controller | Management | Placeholder |
-| **9090** | Prometheus | Monitoring | Placeholder |
-| **3000** | Grafana | Monitoring | Placeholder |
-| **3001** | Uptime Kuma | Monitoring | Placeholder |
-| **5678** | n8n | Automation | Placeholder |
+| Port | Service | Purpose |
+|------|---------|---------|
+| **443** | Wazuh Dashboard | HTTPS web interface |
+| **1514** | Wazuh Manager | Agent communication |
+| **1515** | Wazuh Manager | Agent enrollment |
+| **9200** | Wazuh Indexer | API and data storage |
 
-### 🔴 Identified Conflicts on Node #2
-- **Port 8080**: Element Web conflicts with multiple Node #1 services
-
-### 🔧 Proposed Fixes for Node #2
-- **Element Web**: Move to port **8087**
+### ❌ **Eliminated Services (Replaced by Proxmox Native)**
+- ~~**9000**~~ | ~~Portainer Controller~~ | → **Proxmox Web UI** (https://192.168.0.253:8006)
+- ~~**3001**~~ | ~~Uptime Kuma~~ | → **Proxmox Monitoring + Wazuh**
+- ~~**8000**~~ | ~~Watchtower~~ | → **Proxmox Update Management**
 
 ---
 
-## ⛵ Node #1 (thousandsunny) - Applications & Content Hub
+## ⛵ Node #1 (ThousandSunny) - Proxmox Applications & Storage Hub
 
-### Current Port Allocations (Active Services)
+### Current Port Allocations (36 Services in LXC)
 
 #### Infrastructure & Development (1000-3999)
 | Port | Service | Container | Category | Purpose |
@@ -83,7 +88,6 @@ This document provides a comprehensive registry of all port allocations across b
 | **8084** | Nexus Docker | nexus | DevOps | Docker registry port (fixed) |
 | **8085** | Zigbee2MQTT | zigbee2mqtt | IoT | Zigbee management (fixed) |
 | **8086** | InfluxDB | influxdb | IoT | Time-series database |
-| **8200** | Duplicati | duplicati | Infrastructure | Backup management |
 
 #### Management & Monitoring (9000-9999)
 | Port | Service | Container | Category | Purpose |
@@ -104,18 +108,22 @@ This document provides a comprehensive registry of all port allocations across b
 
 ### Reserved Placeholder Ports (Need Implementation)
 
-#### Media Services
+#### Media Services (Mutual Exclusivity)
 | Port | Service | Category | Status |
 |------|---------|----------|--------|
-| **32400** | Plex | Media | Placeholder |
-| **8096** | Jellyfin | Media | Placeholder |
-| **3001** | Immich | Media | Placeholder ⚠️ (Conflicts with IoT Grafana) |
-| **5055** | Kavita | Media | Placeholder |
-| **9696** | Prowlarr | Media | Placeholder |
-| **8989** | Sonarr | Media | Placeholder |
-| **7878** | Radarr | Media | Placeholder |
-| **6767** | Bazarr | Media | Placeholder |
-| **5055** | Overseerr | Media | Placeholder |
+| **32400** | Plex | Media | **Active** (Primary media server) |
+| **8096** | Jellyfin | Media | **Standby** (Only when Plex fails) |
+| **3001** | Immich | Media | Active ⚠️ (Conflicts with IoT Grafana) |
+| **5055** | Kavita | Media | Active |
+| **9696** | Prowlarr | Media | Active |
+| **8989** | Sonarr | Media | Active |
+| **7878** | Radarr | Media | Active |
+| **6767** | Bazarr | Media | Active |
+| **5055** | Overseerr | Media | Active |
+
+### ❌ **Eliminated Services (Node #1)**
+- ~~**8200**~~ | ~~Duplicati~~ | → **Proxmox Backup Server**
+- ~~**9001**~~ | ~~Portainer Agent~~ | → **Proxmox LXC Management**
 
 #### Download Management
 | Port | Service | Category | Status |

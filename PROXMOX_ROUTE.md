@@ -48,19 +48,20 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Services**: 13 containers in LXC + Wazuh Manager VM (optimized from 17)
 - **Resource Advantage**: 16GB available vs 6GB estimated need (optimized)
 
-#### VM/LXC Resource Allocation Strategy
+#### VM/LXC Resource Allocation Strategy (Updated with Dockerized Wazuh)
 ```
-Total Resources: 16GB RAM, 4 CPU cores
+Total Resources: 16GB RAM, 4 CPU cores, 25GB SWAP
 ├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
-├── Ubuntu Docker LXC: 11GB RAM, 2.5 CPU (13 services - optimized)
-├── Wazuh Manager VM: 4GB RAM, 1.5 CPU (SIEM/IDS)
-└── Utilization: 100% RAM, 100% CPU (perfectly optimized)
+├── Ubuntu Docker LXC: 14GB RAM, 3.25 CPU (39+ services - includes Wazuh stack)
+├── OPNsense Firewall VM: 1GB RAM, 0.5 CPU (NordVPN distribution)
+└── Utilization: 100% RAM, 100% CPU + 25GB SWAP buffer
 ```
 
-#### Service Categories (Node #2) - Optimized
+#### Service Categories (Node #2) - Optimized with Enhanced Security
 - **Networking (2)**: Nginx Proxy, Cloudflare (~256MB RAM) - **Portainer Proxy eliminated**
 - **Monitoring (4)**: Prometheus (reduced scope), Grafana, Loki, Promtail (~2-3GB RAM) - **Uptime Kuma, Watchtower eliminated**
-- **Security (5)**: Authentik, CrowdSec, Suricata, Vaultwarden (~2-3GB RAM)
+- **Security (8)**: Authentik, CrowdSec, Suricata, Vaultwarden, Wazuh Manager, Wazuh Indexer, Wazuh Dashboard (~6-7GB RAM)
+- **Security Enhancement**: OPNsense VM + Dockerized Wazuh SIEM stack
 - **Management**: **Portainer entirely eliminated** (replaced by native Proxmox management)
 - **Automation (1)**: n8n (~512MB RAM)
 
@@ -218,50 +219,136 @@ Before starting, ensure the following ISO files are available:
    # Datacenter > Cluster should show both nodes
    ```
 
-## 🔒 Phase 3: Wazuh Manager VM Deployment
+## 🔒 Phase 3: Wazuh SIEM Docker Deployment (Enhanced Containerization)
 
-### Step 3.1: Wazuh Manager VM Creation
+### Step 3.1: Wazuh Manager Stack in Node #1 LXC (ThousandSunny)
 
-1. **VM Specifications**
+1. **Wazuh Docker Resource Allocation**
    ```yaml
-   VM ID: 100
-   Name: wazuh-manager
-   OS: Ubuntu Server 22.04 LTS
-   CPU: 2 cores
-   RAM: 4GB
-   Disk: 50GB (on local-lvm storage)
-   Network: vmbr0 (bridged)
-   IP: 192.168.0.100/24
+   Deployment: Docker containers in existing Node #1 LXC
+   Total Resources: 4.6GB RAM within LXC allocation
+   Components:
+   - Wazuh Manager: 1.5GB RAM, 1 CPU
+   - Wazuh Indexer: 2GB RAM, 1 CPU  
+   - Wazuh Dashboard: 1GB RAM, 0.5 CPU
+   Benefit: No VM overhead - runs in existing LXC
    ```
 
-2. **VM Creation via Proxmox Web UI**
-   ```bash
-   # Access either Proxmox node web interface
-   # Node Selection: Deploy on Node #1 (ThousandSunny) for better resource distribution
+2. **Wazuh Docker Compose Configuration**
+   ```yaml
+   # Create Wazuh stack directory in Node #1 LXC
+   # /home/sunnylabx/docker-compose/security/wazuh-stack.yml
    
-   # Create VM Steps:
-   # 1. Click "Create VM"
-   # 2. General: VM ID 100, Name "wazuh-manager", Node "thousandsunny"
-   # 3. OS: Select ubuntu-22.04-server-amd64.iso
-   # 4. System: Default settings (UEFI if available)
-   # 5. Disks: 50GB disk on local-lvm storage
-   # 6. CPU: 2 cores, type "host"
-   # 7. Memory: 4096MB (4GB)
-   # 8. Network: vmbr0, Model "VirtIO"
-   # 9. Confirm and Create
+   version: '3.8'
+   services:
+     wazuh-manager:
+       image: wazuh/wazuh-manager:4.7.0
+       hostname: wazuh-manager
+       restart: always
+       ports:
+         - "1514:1514"      # Agent communication
+         - "1515:1515"      # Agent enrollment
+         - "514:514/udp"    # Syslog
+         - "55000:55000"    # API
+       environment:
+         - INDEXER_URL=https://wazuh-indexer:9200
+         - INDEXER_USERNAME=admin
+         - INDEXER_PASSWORD=SecurePassword123
+       volumes:
+         - wazuh_api_configuration:/var/ossec/api/configuration
+         - wazuh_etc:/var/ossec/etc
+         - wazuh_logs:/var/ossec/logs
+         - wazuh_queue:/var/ossec/queue
+         - wazuh_integrations:/var/ossec/integrations
+       depends_on:
+         - wazuh-indexer
+       networks:
+         - wazuh_net
+       deploy:
+         resources:
+           limits:
+             memory: 1.5G
+             cpus: '1'
+
+     wazuh-indexer:
+       image: wazuh/wazuh-indexer:4.7.0
+       hostname: wazuh-indexer
+       restart: always
+       ports:
+         - "9200:9200"
+       environment:
+         - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+         - "bootstrap.memory_lock=true"
+         - "discovery.type=single-node"
+         - "network.host=0.0.0.0"
+       ulimits:
+         memlock:
+           soft: -1
+           hard: -1
+       volumes:
+         - wazuh-indexer-data:/var/lib/wazuh-indexer
+       networks:
+         - wazuh_net
+       deploy:
+         resources:
+           limits:
+             memory: 2G
+             cpus: '1'
+
+     wazuh-dashboard:
+       image: wazuh/wazuh-dashboard:4.7.0
+       hostname: wazuh-dashboard
+       restart: always
+       ports:
+         - "443:5601"       # Web dashboard
+       environment:
+         - INDEXER_USERNAME=admin
+         - INDEXER_PASSWORD=SecurePassword123
+         - WAZUH_API_URL=https://wazuh-manager
+         - API_USERNAME=wazuh-wui
+         - API_PASSWORD=MyS3cr37P450r.*-
+       depends_on:
+         - wazuh-indexer
+         - wazuh-manager
+       networks:
+         - wazuh_net
+       deploy:
+         resources:
+           limits:
+             memory: 1G
+             cpus: '0.5'
+
+   volumes:
+     wazuh_api_configuration:
+     wazuh_etc:
+     wazuh_logs:
+     wazuh_queue:
+     wazuh_integrations:
+     wazuh-indexer-data:
+
+   networks:
+     wazuh_net:
+       driver: bridge
    ```
 
-3. **Ubuntu Installation**
+3. **Deploy Wazuh Container Stack**
    ```bash
-   # Start VM and access console
-   # Standard Ubuntu Server installation:
-   # - Hostname: wazuh-manager
-   # - Username: sunnylabx
-   # - Static IP: 192.168.0.100/24
-   # - Gateway: 192.168.0.1
-   # - DNS: 192.168.0.1, 1.1.1.1
-   # - SSH server: Yes
-   # - No additional packages during install
+   # Enter Node #1 LXC
+   pct enter 101
+   
+   # Create directory structure
+   sudo mkdir -p /home/sunnylabx/docker-compose/security
+   cd /home/sunnylabx/docker-compose/security
+   
+   # Create the compose file (save above content as wazuh-stack.yml)
+   nano wazuh-stack.yml
+   
+   # Deploy stack
+   docker-compose -f wazuh-stack.yml up -d
+   
+   # Verify deployment
+   docker-compose -f wazuh-stack.yml ps
+   docker logs security_wazuh-manager_1
    ```
 
 ### Step 3.2: Wazuh Installation and Configuration
@@ -524,7 +611,135 @@ Before starting, ensure the following ISO files are available:
    # This will be configured in the LXC Docker setup
    ```
 
-## 🐳 Phase 4: LXC Container Deployment (Dual Node)
+## � Phase 3B: OPNsense Firewall VM Deployment (Enhanced Security)
+
+### Step 3B.1: OPNsense VM Creation for NordVPN Distribution
+
+1. **VM Specifications**
+   ```yaml
+   VM ID: 110
+   Name: opnsense-firewall
+   OS: OPNsense (FreeBSD-based)
+   CPU: 1 core
+   RAM: 1GB (minimal for firewall operations)
+   Disk: 20GB (sufficient for OS and configs)
+   Network: 2x vmbr (WAN and LAN interfaces)
+   IP WAN: DHCP from Proxmox host NordVPN
+   IP LAN: 10.0.0.1/24 (internal network for VMs/LXCs)
+   ```
+
+2. **OPNsense VM Creation via Proxmox Web UI**
+   ```bash
+   # Deploy on Node #2 (GoingMerry) for better resource distribution
+   # Access GoingMerry Proxmox: https://192.168.0.253:8006
+   
+   # Create VM Steps:
+   # 1. Click "Create VM"
+   # 2. General: VM ID 110, Name "opnsense-firewall", Node "goingmerry"
+   # 3. OS: Select OPNsense-XX.X-OpenSSL-dvd-amd64.iso
+   # 4. System: Default settings (UEFI if available)
+   # 5. Disks: 20GB disk on local-lvm storage
+   # 6. CPU: 1 core, type "host"
+   # 7. Memory: 1024MB (1GB)
+   # 8. Network: 
+   #    - net0: vmbr0 (WAN - connects to Proxmox host NordVPN)
+   #    - net1: vmbr1 (LAN - internal secure network)
+   # 9. Confirm and Create
+   ```
+
+3. **Network Bridge Configuration**
+   ```bash
+   # On GoingMerry Proxmox host, create internal bridge
+   # /etc/network/interfaces - add new bridge
+   
+   auto vmbr1
+   iface vmbr1 inet static
+           address 10.0.0.254/24
+           bridge-ports none
+           bridge-stp off
+           bridge-fd 0
+           bridge-vlan-aware yes
+   
+   # Restart networking
+   systemctl restart networking
+   ```
+
+### Step 3B.2: OPNsense Installation and Configuration
+
+1. **OPNsense Installation**
+   ```bash
+   # Start VM and access console
+   # Follow OPNsense installation wizard:
+   # - Install to disk (20GB)
+   # - Set root password
+   # - Configure interfaces:
+   #   - WAN: vtnet0 (DHCP from Proxmox NordVPN)
+   #   - LAN: vtnet1 (10.0.0.1/24)
+   ```
+
+2. **NordVPN Configuration**
+   ```bash
+   # Access OPNsense web interface: https://10.0.0.1
+   # Default credentials: root / opnsense
+   
+   # Configure NordVPN:
+   # 1. VPN → OpenVPN → Clients
+   # 2. Add NordVPN configuration
+   # 3. Import NordVPN .ovpn config file
+   # 4. Set as default gateway
+   # 5. Configure DNS to NordVPN servers
+   ```
+
+3. **Firewall Rules and NAT**
+   ```bash
+   # Configure firewall rules:
+   # 1. Allow LAN → WAN traffic via NordVPN
+   # 2. Block direct WAN access
+   # 3. Allow specific ports for services:
+   #    - 22 (SSH) - LAN only
+   #    - 443 (HTTPS) - for management interfaces
+   #    - 8006 (Proxmox) - LAN only
+   
+   # Configure NAT:
+   # 1. Outbound NAT via NordVPN interface
+   # 2. Port forwarding for essential services
+   ```
+
+### Step 3B.3: VM/LXC Network Reconfiguration
+
+1. **Update LXC Network Configuration**
+   ```bash
+   # Update both LXCs to use internal network (Wazuh runs as containers in LXC 101)
+   pct set 101 -net0 name=eth0,bridge=vmbr1,ip=10.0.0.251/24,gw=10.0.0.1
+   pct set 102 -net0 name=eth0,bridge=vmbr1,ip=10.0.0.252/24,gw=10.0.0.1
+   
+   # Restart LXCs to apply network changes
+   pct restart 101
+   pct restart 102
+   ```
+
+2. **Update Wazuh Container Configuration**
+   ```bash
+   # Update Wazuh containers to use internal network (if needed)
+   # Containers automatically inherit LXC network configuration
+   # Wazuh Manager will be accessible at: 10.0.0.251:55000 (API)
+   # Wazuh Dashboard: https://10.0.0.251:443
+   # Wazuh Agent connections: 10.0.0.251:1514
+   ```
+
+3. **DNS and Service Discovery Update**
+   ```bash
+   # Update all service configurations to use new IP addresses:
+   # - Wazuh Manager (Dockerized): 10.0.0.251:55000 (API), 10.0.0.251:443 (Dashboard)
+   # - Node #1 LXC: 10.0.0.251  
+   # - Node #2 LXC: 10.0.0.252
+   # - OPNsense: 10.0.0.1
+   
+   # Update Prometheus targets and Wazuh agent configurations
+   # All agents now point to 10.0.0.251:1514 for Wazuh Manager
+   ```
+
+## �🐳 Phase 4: LXC Container Deployment (Dual Node)
 
 ### Step 4.1: Node #1 (ThousandSunny) LXC Deployment
 
@@ -549,6 +764,7 @@ Before starting, ensure the following ISO files are available:
    pct create 101 local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
      --hostname ubuntu-docker-main \
      --memory 8192 \
+     --swap 12288 \
      --cores 4 \
      --rootfs local-lvm:200 \
      --net0 name=eth0,bridge=vmbr0,ip=192.168.0.251/24,gw=192.168.0.1 \
@@ -607,6 +823,7 @@ Before starting, ensure the following ISO files are available:
    pct create 102 local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
      --hostname ubuntu-docker-secondary \
      --memory 6144 \
+     --swap 12800 \
      --cores 2 \
      --rootfs local-lvm:100 \
      --net0 name=eth0,bridge=vmbr0,ip=192.168.0.252/24,gw=192.168.0.1 \
@@ -1061,6 +1278,7 @@ goingmerry
         node: thousandsunny
         ip: "192.168.0.251"
         memory: 8192
+        swap: 12288
         cores: 4
         disk: 200
         services_count: 36
@@ -1069,6 +1287,7 @@ goingmerry
         node: goingmerry
         ip: "192.168.0.252"
         memory: 6144
+        swap: 12800
         cores: 2
         disk: 100
         services_count: 13
@@ -1084,6 +1303,7 @@ goingmerry
         pct create {{ item.value.vmid }} local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
           --hostname {{ item.key }} \
           --memory {{ item.value.memory }} \
+          --swap {{ item.value.swap }} \
           --cores {{ item.value.cores }} \
           --rootfs local-lvm:{{ item.value.disk }} \
           --net0 name=eth0,bridge=vmbr0,ip={{ item.value.ip }}/24,gw=192.168.0.1 \
@@ -1457,32 +1677,32 @@ goingmerry
    ssh shawnji@192.168.0.252 "docker run --rm -v nginx_data:/data -v $(pwd):/backup ubuntu tar czf /backup/nginx_backup.tar.gz /data"
    ```
 
-## 📋 Dual Proxmox Cluster Resource Summary
+## 📋 Dual Proxmox Cluster Resource Summary (Enhanced with Dockerized Wazuh)
 
-### Node #1 (ThousandSunny) - Proxmox VE + Ubuntu LXC - 12GB RAM, 4 CPU cores
+### Node #1 (ThousandSunny) - Proxmox VE + Ubuntu LXC - 12GB RAM, 4 CPU cores, 12GB SWAP
 ```
-Optimized Proxmox Deployment:
+Optimized Proxmox Deployment with Dockerized Wazuh:
 ├── Proxmox Host: 2GB RAM, 0.5 CPU cores
-├── Wazuh Manager VM: 4GB RAM, 2 CPU cores (relocated from Node #2)
-├── Ubuntu Docker LXC: 8GB RAM, 4 CPU cores (36 services)
-├── Available for expansion: 0GB RAM, 0 CPU cores
-└── Utilization: ~117% RAM (requires optimization), 100% CPU
+├── Ubuntu Docker LXC: 10GB RAM (12GB SWAP), 3.5 CPU cores (39+ services including Wazuh)
+├── Available for expansion: 0GB RAM, 0 CPU cores + SWAP buffer
+└── Utilization: 83% RAM (improved from 117%), 87.5% CPU (improved efficiency)
 ```
 
-### Node #2 (GoingMerry) - Proxmox VE + Ubuntu LXC - 16GB RAM, 4 CPU cores
+### Node #2 (GoingMerry) - Proxmox VE + Ubuntu LXC - 16GB RAM, 4 CPU cores, 13GB SWAP
 ```
-Optimized Proxmox Deployment:
+Enhanced Security Proxmox Deployment:
 ├── Proxmox Host: 2GB RAM, 0.5 CPU cores  
-├── Ubuntu Docker LXC: 6GB RAM, 2 CPU cores (13 services)
-├── Available for expansion: 8GB RAM, 1.5 CPU cores
-└── Utilization: 50% RAM, 62.5% CPU (excellent headroom)
+├── OPNsense Firewall VM: 1GB RAM, 0.5 CPU cores (NordVPN distribution)
+├── Ubuntu Docker LXC: 6GB RAM (13GB SWAP), 2 CPU cores (13 services)
+├── Available for expansion: 7GB RAM, 1 CPU core + SWAP buffer
+└── Utilization: 56% RAM, 75% CPU (excellent headroom with enhanced security)
 ```
 
-### Optimized Service Distribution (48-50 Services Total)
+### Optimized Service Distribution (51-53 Services Total)
 
-#### Node #1 (ThousandSunny) - 36 Services in LXC
+#### Node #1 (ThousandSunny) - 39+ Services in LXC (Including Dockerized Wazuh)
 ```
-Storage & Media-Intensive Workloads:
+Storage & Media-Intensive Workloads + Security:
 ├── Media Services (9): Plex OR Jellyfin (backup), ARR Suite, Immich, Kavita, Overseerr
 │   └── Benefits: NFS access to 4x4TB HDDs, optimized storage I/O
 │   └── Note: Jellyfin only runs when Plex is down (mutual exclusivity saves ~1-2GB RAM)
@@ -1494,7 +1714,9 @@ Storage & Media-Intensive Workloads:
 │   └── Benefits: Direct storage access for downloads
 ├── Development (2): Code-server, Git services
 │   └── Benefits: Local development environment
-└── Total: 36 services (reduced from 38)
+├── Security Monitoring (3): Wazuh Manager, Wazuh Indexer, Wazuh Dashboard
+│   └── Benefits: Dockerized SIEM stack, no VM overhead, better containerization practice
+└── Total: 39+ services (increased from 36, but better resource efficiency)
 ```
 
 #### Node #2 (GoingMerry) - 13 Services in LXC
@@ -1509,13 +1731,25 @@ Network & Management Workloads (Optimized):
 └── Total: 13 services (reduced from 17)
 ```
 
-#### Dedicated Wazuh Manager VM (Node #1)
+#### Dockerized Wazuh SIEM Stack (Node #1 LXC)
 ```
-Security Monitoring Platform:
-├── Wazuh Manager: SIEM, log analysis, threat detection
-├── Wazuh Indexer: Search and data storage (Elasticsearch replacement)
-├── Wazuh Dashboard: Web interface and visualization (Kibana replacement)
-└── Resource: 4GB RAM, 2 CPU cores (more efficient than 6GB Security Onion)
+Containerized Security Monitoring Platform:
+├── Wazuh Manager: SIEM, log analysis, threat detection (Docker)
+├── Wazuh Indexer: Search and data storage (Docker, Elasticsearch replacement)
+├── Wazuh Dashboard: Web interface and visualization (Docker, Kibana replacement)
+├── Resource Efficiency: 4.6GB RAM within existing LXC (no VM overhead)
+└── Benefit: Better containerization practice, improved resource utilization
+```
+
+#### Dedicated OPNsense Firewall VM (Node #2)
+```
+Enhanced Network Security Platform:
+├── OPNsense Firewall: Advanced firewall and routing
+├── NordVPN Integration: VPN client for all VM/LXC traffic
+├── NAT & Port Forwarding: Secure external access
+├── DNS Filtering: Enterprise-grade DNS security
+├── Network Segmentation: Isolated internal network (10.0.0.0/24)
+└── Resource: 1GB RAM, 0.5 CPU cores (minimal overhead for maximum security)
 ```
 
 ### Service Elimination Benefits (1.75GB RAM Liberation)
@@ -1576,7 +1810,7 @@ Resource Benefits:
 └── Improved performance isolation
 ```
 
-## 🏁 Implementation Summary
+## 🏁 Implementation Summary (Enhanced Security Edition)
 
 ### **Why Dual Proxmox vs Hybrid Approach?**
 
@@ -1585,63 +1819,79 @@ Resource Benefits:
 - ❌ **Service Duplication**: Portainer, Uptime Kuma, Duplicati redundancy
 - ❌ **Resource Waste**: 1.75GB in management overhead
 - ❌ **Backup Inconsistency**: Different backup strategies per node
+- ❌ **Security Gaps**: No unified VPN distribution or advanced firewall
 
 **Dual Proxmox Solutions**:
 - ✅ **Unified Management**: Single Proxmox cluster interface
 - ✅ **Service Consolidation**: Native Proxmox capabilities eliminate redundancy
 - ✅ **Resource Efficiency**: 1.75GB freed for application services
 - ✅ **Professional Operations**: Enterprise-grade virtualization management
-- ✅ **Better Security**: Wazuh Manager with proper resource allocation
+- ✅ **Enhanced Security**: Dockerized Wazuh SIEM + OPNsense VM with NordVPN distribution
+- ✅ **SWAP Buffer**: 25GB SWAP across both nodes for memory stability
+- ✅ **Containerization Excellence**: Wazuh moved from VM to Docker for better practice
 - ✅ **Scalability**: Easy addition of new nodes to cluster
 
-### **Final Architecture: Production-Ready Homelab**
-- **48-50 optimized services** (down from 62)
+### **Final Architecture: Production-Ready Secure Homelab with Enhanced Containerization**
+- **51-53 optimized services** (increased from 48-50 due to Dockerized Wazuh)
 - **Dual Proxmox cluster** with unified management
-- **Dedicated security monitoring** (Wazuh Manager VM)
+- **Dockerized security monitoring** (Wazuh SIEM stack in containers)
+- **Advanced network security** (OPNsense VM with NordVPN)
+- **Enhanced memory management** (25GB SWAP total)
 - **Efficient resource utilization** across both nodes
 - **Professional backup and monitoring** capabilities
 - **1.75GB RAM liberation** for application workloads  
-✅ **Security Benefits**: Process isolation without VM overhead  
+✅ **Security Benefits**: Process isolation + VPN distribution + advanced firewall + containerized SIEM  
 ✅ **Future Flexibility**: Easy to adjust resources, add containers  
 ✅ **Backup Strategy**: Built-in LXC snapshots and templates  
+✅ **Network Security**: All traffic routed through NordVPN tunnel
+✅ **Containerization Excellence**: Wazuh demonstrates advanced Docker practices
 
-**Why Not VMs**:
+**Why Not VMs for Everything**:
 ❌ **Resource Waste**: 1-2GB overhead per VM too expensive  
 ❌ **Performance Penalty**: Unnecessary for containerized workloads  
 ❌ **Complexity**: Extra management layer without significant benefits  
+✅ **Strategic VM Use**: Only for specialized services (OPNsense firewall)  
 
-## 🚀 Migration Path
+## 🚀 Migration Path (Enhanced)
 
 ### Phase 1: Prepare Node #2 (GoingMerry)
 1. **Backup existing Ubuntu services** from GoingMerry
 2. **Install Proxmox VE** (fresh installation recommended)
-3. **Create LXC containers** with proper resource allocation
-4. **Migrate services** one category at a time
+3. **Deploy OPNsense VM** with NordVPN configuration
+4. **Create LXC containers** with proper resource allocation and SWAP
+5. **Migrate services** one category at a time
 
 ### Phase 2: Optimize Node #1 (ThousandSunny)  
 1. **System tuning** for increased container density
 2. **Resource limit implementation** across all services
 3. **Storage optimization** for media and database workloads
-4. **Monitoring setup** for resource usage tracking
+4. **SWAP configuration** for memory stability
+5. **Monitoring setup** for resource usage tracking
 
-### Phase 3: Integration & Testing
-1. **Inter-node communication** verification
-2. **NFS mount** optimization between nodes
-3. **Security Onion** deployment and log integration
-4. **Comprehensive testing** of all service interactions
+### Phase 3: Security Integration & Testing
+1. **Wazuh Manager deployment** and agent installation
+2. **OPNsense network reconfiguration** for all VMs/LXCs
+3. **NordVPN tunnel verification** and failover testing
+4. **Inter-node communication** verification through secure network
+5. **NFS mount** optimization between nodes
+6. **Comprehensive testing** of all service interactions
 
-## 🎊 Benefits of Hybrid Proxmox Route
+## 🎊 Benefits of Enhanced Dual Proxmox Route
 
-### Enhanced Capabilities
-- **Enterprise Virtualization**: Professional VM/LXC management on Node #2
-- **Dedicated Security**: Security Onion SIEM with full network monitoring
+### Enhanced Security Capabilities
+- **Enterprise Virtualization**: Professional VM/LXC management on both nodes
+- **Dedicated Security Monitoring**: Wazuh Manager SIEM with full network analysis
+- **Advanced Network Security**: OPNsense firewall with NordVPN distribution
+- **Network Isolation**: Internal 10.0.0.0/24 network for all services
 - **Resource Optimization**: Direct deployment where needed, virtualization where beneficial
 - **Operational Excellence**: Best practices for backup, monitoring, and maintenance
+- **Memory Stability**: 25GB SWAP ensures stable operation under high load
 
 ### Maintained Performance  
 - **Media Performance**: Direct hardware access on Node #1 for transcoding
 - **Storage Performance**: No virtualization overhead for 9TB media storage
-- **Network Performance**: Optimized routing between physical and virtual services
+- **Network Performance**: Optimized routing through OPNsense firewall
+- **Security Performance**: Minimal overhead from OPNsense VM (1GB RAM)
 
 ### Future-Proofing
 - **Scalability**: Easy to add new LXC containers on Node #2

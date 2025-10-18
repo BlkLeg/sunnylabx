@@ -1,4 +1,4 @@
-# Hardware Details:
+# Dual Proxmox Cluster Hardware Details:
 
 **Command Center: TheBaratie (Laptop)**
 
@@ -10,38 +10,44 @@ Nitro V 15 ANV15-41
 - 1TB SSD + 500GB SSD
 - PopOS - 192.168.0.222
 
-**Node #1 ThousandSunny (Headless Server)**
+**Node #1 ThousandSunny (Proxmox Host)**
 
 - Dell XPS 8500
-- GeForce GT 620
-- i7-3770 CPU
-- 8GB DDR3 + 4GB DDR3
-- 1TB SSD (OS) + 9TB HDDs
-- Ubuntu LTS 24.04 - 192.168.0.254
+- GeForce GT 620 (blacklisted nouveau driver)
+- i7-3770 CPU (4c/8t)
+- 8GB DDR3 + 4GB DDR3 = 12GB total
+- 1TB SSD (OS) + 9TB HDDs (media storage)
+- **Proxmox VE 8.x** - 192.168.0.254
+- **Ubuntu LXC** (ID: 101) - 192.168.0.251 (36 services)
+- **Wazuh Manager VM** (ID: 100) - 192.168.0.100 (4GB RAM)
 
-**Node #2 GoingMerry (Headless Server)**
+**Node #2 GoingMerry (Proxmox Host)**
 
 - Mini PC
-- Intel Twin Lake-N150
+- Intel Twin Lake-N150 (4 cores)
 - 16GB DDR4
 - 500GB NVMe SSD
-- Ubuntu LTS 24.04 - 192.168.0.253
+- **Proxmox VE 8.x** - 192.168.0.253
+- **Ubuntu LXC** (ID: 102) - 192.168.0.252 (13 services)
 
 ---
 
-## 🚨 CRITICAL RESOURCE MANAGEMENT INSTRUCTIONS FOR FUTURE AGENTS
+## 🚨 CRITICAL RESOURCE MANAGEMENT - DUAL PROXMOX CLUSTER
 
-**MANDATORY**: All Docker services MUST include resource limits to prevent node overload. These limits are based on the actual hardware capabilities listed above.
+**MANDATORY**: All Docker services in LXC containers MUST include resource limits. These limits account for Proxmox host overhead and VM/LXC resource allocation.
 
-### Node #1 (ThousandSunny) Resource Constraints
-- **CPU**: i7-3770 (4 cores, 8 threads) - **LIMIT PER SERVICE: 2 CPUs MAX**
-- **RAM**: 12GB DDR3 total - **LEAVE 2GB FOR SYSTEM = 10GB AVAILABLE**
-- **Storage**: 1TB SSD + 9TB HDD - Media services get HDD mounts
+### Node #1 (ThousandSunny) LXC Resource Constraints
+- **Proxmox Host**: 2GB RAM reserved
+- **Wazuh Manager VM**: 4GB RAM dedicated
+- **Ubuntu LXC**: 8GB RAM allocated (ID: 101)
+- **CPU**: 4 cores shared across LXC - **LIMIT PER SERVICE: 1.5 CPUs MAX**
+- **Storage**: Direct HDD bind mounts to LXC for media services
 
-### Node #2 (GoingMerry) Resource Constraints  
-- **CPU**: Intel Twin Lake-N150 (4 cores) - **LIMIT PER SERVICE: 1.5 CPUs MAX**
-- **RAM**: 16GB DDR4 total - **LEAVE 2GB FOR SYSTEM = 14GB AVAILABLE**
-- **Storage**: 500GB NVMe - Lightweight services only, use NFS for media
+### Node #2 (GoingMerry) LXC Resource Constraints  
+- **Proxmox Host**: 2GB RAM reserved
+- **Ubuntu LXC**: 6GB RAM allocated (ID: 102)
+- **CPU**: 2 cores allocated to LXC - **LIMIT PER SERVICE: 1.0 CPU MAX**
+- **Storage**: NVMe storage only, use NFS for media access
 
 ### Required Docker Compose Resource Syntax
 

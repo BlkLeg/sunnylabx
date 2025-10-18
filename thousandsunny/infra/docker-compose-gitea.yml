@@ -3,8 +3,8 @@
 # Node: thousandsunny (Node #1)
 # Category: Infrastructure & Development
 # =============================================================================
-# Services: Gitea, Gitea Actions, Duplicati, Nextcloud AIO
-# Purpose: Git hosting, CI/CD, backup, and cloud storage
+# Services: Gitea, Gitea Actions, Nextcloud AIO (Duplicati eliminated - replaced by Proxmox backup)
+# Purpose: Git hosting, CI/CD, and cloud storage
 # Network: Dedicated development network with external access
 # =============================================================================
 
@@ -83,35 +83,14 @@ services:
     labels:
       - "traefik.enable=false"
 
-  duplicati:
-    image: linuxserver/duplicati:latest
-    container_name: duplicati
-    restart: unless-stopped
-    environment:
-      PUID: 1000
-      PGID: 1000
-      TZ: ${TZ:-UTC}
-    volumes:
-      - duplicati_config:/config
-      - duplicati_backups:/backups
-      - /var/lib/docker/volumes:/source/docker_volumes:ro
-      - ${BACKUP_SOURCE_PATH:-/home}:/source/home:ro
-    ports:
-      - "8200:8200"
-    networks:
-      - development_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.duplicati.rule=Host(`backup.lab.local`)"
-      - "traefik.http.services.duplicati.loadbalancer.server.port=8200"
-
   # Cloud & productivity (Node #1)
+  # Note: Duplicati eliminated - Proxmox backup provides native VM/LXC backup capabilities
   nextcloud-aio:
     image: nextcloud/all-in-one:latest
     container_name: nextcloud-aio-mastercontainer
     restart: unless-stopped
     environment:
-      AIO_DISABLE_BACKUP_SECTION: true  # We use Duplicati
+      AIO_DISABLE_BACKUP_SECTION: true  # Proxmox backup handles infrastructure backups
       APACHE_PORT: 11000
       APACHE_IP_BINDING: 0.0.0.0
       NEXTCLOUD_DATADIR: ${NEXTCLOUD_DATADIR:-/var/lib/docker/volumes/nextcloud_aio_nextcloud_data/_data}
@@ -139,10 +118,6 @@ volumes:
   gitea_postgres_data:
     driver: local
   gitea_runner_data:
-    driver: local
-  duplicati_config:
-    driver: local
-  duplicati_backups:
     driver: local
   nextcloud_aio_mastercontainer:
     driver: local

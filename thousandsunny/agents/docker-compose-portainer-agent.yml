@@ -1,4 +1,0 @@
-services:
-  # Portainer Agent (Node #1)
-  portainer-agent:
-    image: "ghcr.io/example/portainer-agent:placeholder"

@@ -1,4 +1,27 @@
+```dockercompose
+# Security Agent for Node #1 (ThousandSunny) - Proxmox LXC
+# Portainer Agent eliminated - replaced by Proxmox native LXC management
 services:
-  # Wazuh Agent (Node #1)
+  # Wazuh Agent - Security monitoring for SIEM integration
   wazuh-agent:
-    image: "ghcr.io/example/wazuh-agent:placeholder"
+    image: "wazuh/wazuh-agent:4.8.0"
+    container_name: wazuh-agent
+    restart: unless-stopped
+    environment:
+      - WAZUH_MANAGER=192.168.0.100  # Wazuh Manager VM
+      - WAZUH_AGENT_GROUP=default
+      - WAZUH_REGISTRATION_SERVER=192.168.0.100
+      - WAZUH_REGISTRATION_PASSWORD=${WAZUH_REGISTRATION_PASSWORD}
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /etc/hostname:/etc/hostname:ro
+      - /etc/localtime:/etc/localtime:ro
+    privileged: true
+    network_mode: host
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://192.168.0.100:514"
+        tag: "wazuh-agent"
+```
