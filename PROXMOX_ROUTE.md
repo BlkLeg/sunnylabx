@@ -30,11 +30,11 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.254
 - **Services**: 36 containers in Ubuntu LXC (optimized from 38)
-- **Resource Challenge**: 12GB available vs 15-20GB estimated need (reduced through elimination)
+- **Resource Challenge**: 12GB available vs 14-18GB estimated need (reduced through elimination + Plex/Jellyfin mutual exclusivity)
 - **Strategy**: LXC deployment with aggressive resource limits, direct storage bind mounts
 
 #### Service Categories (Node #1) - Optimized
-- **Media Services (9)**: Plex, Jellyfin, ARR Suite, Immich (~6-8GB RAM)
+- **Media Services (9)**: Plex OR Jellyfin (backup), ARR Suite, Immich (~5-7GB RAM) - *Jellyfin only runs when Plex is down*
 - **IoT/Home Automation (7)**: Home Assistant, MQTT, InfluxDB (~2-3GB RAM)
 - **Infrastructure (13)**: Databases, DevOps, Gitea, Nextcloud (~4-5GB RAM) - **Duplicati eliminated**
 - **AI Services (2)**: Ollama, WebUI (~4-6GB RAM if enabled)
@@ -669,6 +669,8 @@ Before starting, ensure the following ISO files are available:
    
    # Media Services
    docker-compose -f docker-compose-media.yml up -d
+   # Note: Jellyfin container exists but remains stopped - only starts when Plex fails
+   # This mutual exclusivity saves 1-2GB RAM during normal operation
    
    # Torrent Services  
    docker-compose -f docker-compose-torrent.yml up -d
@@ -715,7 +717,31 @@ Before starting, ensure the following ISO files are available:
 
 ### Step 5.1: Service Configuration Updates for Dual Proxmox
 
-1. **Eliminated Services Documentation**
+1. **Media Services Mutual Exclusivity Configuration**
+   ```yaml
+   # Plex/Jellyfin Resource Optimization
+   # docker-compose-media.yml configuration strategy:
+   
+   services:
+     plex:
+       # Primary media server - always enabled
+       restart: unless-stopped
+       
+     jellyfin:
+       # Backup media server - disabled by default
+       restart: "no"  # Only start manually when Plex fails
+       profiles:
+         - backup    # Use Docker Compose profiles for conditional startup
+       
+   # Usage:
+   # Normal operation: docker-compose up -d (only Plex starts)
+   # Plex failure: docker-compose --profile backup up jellyfin -d
+   # 
+   # Resource Benefit: Saves 1-2GB RAM during normal operation
+   # Service count remains 9 but effective resource usage reduced
+   ```
+
+2. **Eliminated Services Documentation**
    ```yaml
    # Services removed due to Proxmox native capabilities:
    
@@ -728,7 +754,7 @@ Before starting, ensure the following ISO files are available:
    # Networking Services (eliminated):
    - adguard-home     # → Complete removal (reduced networking stack)
    
-   # Total RAM Liberation: ~1.75GB
+   # Total RAM Liberation: ~2.75-3.75GB (including Plex/Jellyfin optimization)
    # Service Count Reduction: 62 → 48-50 services
    ```
           memory: 256M
@@ -1457,8 +1483,9 @@ Optimized Proxmox Deployment:
 #### Node #1 (ThousandSunny) - 36 Services in LXC
 ```
 Storage & Media-Intensive Workloads:
-├── Media Services (9): Plex, Jellyfin, ARR Suite, Immich, Kavita, Overseerr
+├── Media Services (9): Plex OR Jellyfin (backup), ARR Suite, Immich, Kavita, Overseerr
 │   └── Benefits: NFS access to 4x4TB HDDs, optimized storage I/O
+│   └── Note: Jellyfin only runs when Plex is down (mutual exclusivity saves ~1-2GB RAM)
 ├── Infrastructure (15): PostgreSQL, Redis, Gitea, Nextcloud, DevOps tools  
 │   └── Benefits: High-performance storage, database optimization
 ├── IoT/Home Automation (7): Home Assistant, MQTT, InfluxDB, Zigbee2MQTT
