@@ -1,46 +1,128 @@
-# SunnyLabX Proxmox Deployment Route
+# SunnyLabX Hybrid Proxmox Deployment Route
 
-This alternative deployment guide walks you through deploying the SunnyLabX infrastructure with **Node #2 (GoingMerry) running Proxmox VE** instead of Ubuntu Server. This route provides enhanced virtualization capabilities, better resource isolation, and dedicated security monitoring with Security Onion.
+This deployment guide walks you through a **hybrid virtualization approach** optimized for the SunnyLabX hardware constraints. After comprehensive analysis of 62 total services across both nodes, this route provides the optimal balance of performance, resource utilization, and management capabilities.
 
 ## 🎯 Architecture Overview
 
-**Total Deployment Time**: 6-8 hours (including Proxmox setup)
-**Services**: 53 containers + 2 VMs on Node #2
-**Virtualization**: Proxmox VE 8.x with dedicated VMs
+**Total Deployment Time**: 6-7 hours (including Proxmox setup and service migration)
+**Services**: 62 containers across hybrid deployment
+**Approach**: Hybrid - Direct Docker + Proxmox virtualization
 
-### Node Configuration
-- **Node #1 (ThousandSunny)**: Ubuntu Server LTS 24.04 - Media & Application Hub
-- **Node #2 (GoingMerry)**: Proxmox VE 8.x - Management & Security Hub
-  - **Ubuntu VM**: Docker services (Networking, Monitoring, Management)
-  - **Security Onion VM**: Dedicated SIEM/IDS platform
+### Optimized Node Configuration
+- **Node #1 (ThousandSunny)**: Ubuntu Server LTS 24.04 - Direct Docker Deployment
+  - **38 services** running directly on Ubuntu (no virtualization overhead)
+  - **Media transcoding**, large storage access, resource-intensive workloads
+- **Node #2 (GoingMerry)**: Proxmox VE 8.x - Virtualized Management Hub
+  - **Ubuntu LXC**: Docker services (18 containers)
+  - **Security Onion LXC**: Dedicated SIEM/IDS platform
 
-## 📋 Hardware Requirements
+### Why Hybrid Approach?
+- **Node #1**: Resource-constrained (12GB for 17-23GB workload) - needs maximum efficiency
+- **Node #2**: Resource-abundant (16GB for 8GB workload) - can benefit from virtualization
+- **Storage**: Direct HDD access required for media services
+- **Performance**: Media transcoding benefits from direct hardware access
 
-### Node #1 (ThousandSunny) - Unchanged
-- **Hardware**: Dell XPS 8500, i7-3770, 12GB DDR3, 1TB SSD + 9TB HDD
-- **OS**: Ubuntu Server LTS 24.04
+## 📋 Hardware Analysis & Resource Allocation
+
+### Node #1 (ThousandSunny) - Direct Docker Deployment
+- **Hardware**: Dell XPS 8500, i7-3770 (4c/8t), 12GB DDR3, 1TB SSD + 9TB HDD
+- **OS**: Ubuntu Server LTS 24.04 (no virtualization)
 - **IP**: 192.168.0.254
-- **Role**: Media services, Home automation, Development, AI
+- **Services**: 38 containers directly on Ubuntu
+- **Resource Challenge**: 12GB available vs 17-23GB estimated need
+- **Strategy**: Direct deployment for maximum efficiency, careful resource management
 
-### Node #2 (GoingMerry) - Proxmox Host
-- **Hardware**: Mini PC, Intel Twin Lake-N150, 16GB DDR4, 500GB NVMe
+#### Service Categories (Node #1)
+- **Media Services (9)**: Plex, Jellyfin, ARR Suite, Immich (~6-8GB RAM)
+- **IoT/Home Automation (7)**: Home Assistant, MQTT, InfluxDB (~2-3GB RAM)
+- **Infrastructure (15)**: Databases, DevOps, Gitea, Nextcloud (~4-5GB RAM)
+- **AI Services (2)**: Ollama, WebUI (~4-6GB RAM if enabled)
+- **Torrent/Download (3)**: qBittorrent, Deluge (~1GB RAM)
+- **Agents (2)**: Portainer Agent, Wazuh Agent (~256MB RAM)
+
+### Node #2 (GoingMerry) - Proxmox Virtualization Host
+- **Hardware**: Mini PC, Intel Twin Lake-N150 (4 cores), 16GB DDR4, 500GB NVMe
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.253
-- **Role**: Virtualization host for management services
+- **Services**: 18 containers in LXC + Security Onion
+- **Resource Advantage**: 16GB available vs 8GB estimated need
 
-#### VM Resource Allocation (Node #2)
-- **Proxmox Host Reserve**: 2GB RAM, 0.5 CPU cores
-- **Available for VMs**: 14GB RAM, 3.5 CPU cores
-- **Storage**: 450GB available (50GB reserved for host)
+#### LXC Resource Allocation Strategy
+```
+Total Resources: 16GB RAM, 4 CPU cores
+├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
+├── Ubuntu Docker LXC: 10GB RAM, 2 CPU (18 services)
+├── Security Onion LXC: 5GB RAM, 2 CPU (SIEM/IDS)
+└── Utilization: 100% RAM, 106% CPU (optimal)
+```
 
-## 🔧 Phase 1: Proxmox Installation & Configuration
+#### Service Categories (Node #2)
+- **Networking (4)**: Nginx Proxy, AdGuard, Cloudflare (~512MB RAM)
+- **Monitoring (6)**: Prometheus, Grafana, Loki (~3-4GB RAM)
+- **Security (5)**: Authentik, CrowdSec, Suricata (~2-3GB RAM)
+- **Management (2)**: Portainer (~256MB RAM)
+- **Automation (1)**: n8n (~512MB RAM)
 
-### Step 1.1: Proxmox VE Installation
+## 🔧 Phase 1: Node #1 Optimization (ThousandSunny)
+
+### Step 1.1: Resource Optimization for Direct Docker
+
+Since Node #1 will continue running Ubuntu with direct Docker deployment, we need to optimize it for the 38-service workload:
+
+1. **System Tuning**
+   ```bash
+   # SSH to Node #1
+   ssh shawnji@192.168.0.254
+   
+   # Optimize kernel parameters for container workloads
+   echo 'vm.max_map_count=262144' | sudo tee -a /etc/sysctl.conf
+   echo 'vm.overcommit_memory=1' | sudo tee -a /etc/sysctl.conf
+   echo 'kernel.pid_max=4194304' | sudo tee -a /etc/sysctl.conf
+   
+   # Apply immediately
+   sudo sysctl -p
+   ```
+
+2. **Docker Resource Management**
+   ```bash
+   # Configure Docker daemon with resource constraints
+   sudo tee /etc/docker/daemon.json <<EOF
+   {
+     "log-driver": "json-file",
+     "log-opts": {
+       "max-size": "10m",
+       "max-file": "3"
+     },
+     "default-ulimits": {
+       "nofile": {
+         "Name": "nofile",
+         "Hard": 64000,
+         "Soft": 64000
+       }
+     }
+   }
+   EOF
+   
+   sudo systemctl restart docker
+   ```
+
+3. **Storage Optimization**
+   ```bash
+   # Ensure media drives are properly mounted
+   sudo mkdir -p /mnt/hdd-{1,2,3,4}
+   
+   # Verify NFS mounts are optimized for Node #2 access
+   # (These will be accessed by GoingMerry via NFS)
+   ```
+
+## 🔧 Phase 2: Proxmox Installation & Configuration (Node #2)
+
+### Step 2.1: Proxmox VE Installation on GoingMerry
 
 1. **Download Proxmox VE ISO**
    ```bash
    # From command center (TheBaratie)
-   wget https://www.proxmox.com/en/downloads/category/iso-images-pve
+   wget https://enterprise.proxmox.com/iso/proxmox-ve_8.2-1.iso
    ```
 
 2. **Flash to USB and Install**
@@ -55,20 +137,19 @@ This alternative deployment guide walks you through deploying the SunnyLabX infr
    # Update Proxmox
    apt update && apt full-upgrade
    
-   # Remove enterprise repository (optional)
-   nano /etc/apt/sources.list.d/pve-enterprise.list
-   # Comment out the enterprise line
+   # Remove enterprise repository warnings
+   sed -i 's/^deb/#deb/' /etc/apt/sources.list.d/pve-enterprise.list
    
    # Add no-subscription repository
    echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-no-subscription.list
    apt update
    ```
 
-### Step 1.2: Network Configuration
+### Step 2.2: Network Configuration
 
 1. **Configure Bridge Interface**
    ```bash
-   # /etc/network/interfaces (if not auto-configured)
+   # /etc/network/interfaces (usually auto-configured during install)
    auto lo
    iface lo inet loopback
    
@@ -89,40 +170,74 @@ This alternative deployment guide walks you through deploying the SunnyLabX infr
    systemctl restart networking
    ```
 
-### Step 1.3: Storage Configuration
-
-1. **Create VM Storage**
-   - **local**: Proxmox system (50GB)
-   - **local-lvm**: VM disks (400GB)
-   - **VM Templates**: Download Ubuntu 22.04 LTS template
-
-## 🔒 Phase 2: Security Onion VM Deployment
-
-### Step 2.1: Security Onion VM Creation
-
-1. **VM Specifications**
-   ```yaml
-   VM ID: 100
-   Name: security-onion
-   CPU: 2 cores
-   RAM: 6GB
-   Disk: 100GB (thin provisioned)
-   Network: vmbr0 (bridged)
-   Boot: Ubuntu 22.04 LTS ISO
-   ```
-
-2. **Download Security Onion**
+3. **Configure NFS Client for ThousandSunny Access**
    ```bash
-   # In Proxmox web interface, download Security Onion ISO
-   # Or upload from command center
-   wget https://download.securityonion.net/file/securityonion/securityonion-2.3.190-20240214.iso
+   # Install NFS client on Proxmox host
+   apt install nfs-common -y
+   
+   # Create mount points
+   mkdir -p /mnt/HDD{1,2,3,4}
+   
+   # Add NFS mounts to fstab
+   echo "192.168.0.254:/mnt/hdd-1 /mnt/HDD1 nfs defaults,_netdev 0 0" >> /etc/fstab
+   echo "192.168.0.254:/mnt/hdd-2 /mnt/HDD2 nfs defaults,_netdev 0 0" >> /etc/fstab
+   echo "192.168.0.254:/mnt/hdd-3 /mnt/HDD3 nfs defaults,_netdev 0 0" >> /etc/fstab
+   echo "192.168.0.254:/mnt/hdd-4 /mnt/HDD4 nfs defaults,_netdev 0 0" >> /etc/fstab
+   
+   # Mount NFS shares
+   mount -a
    ```
 
-3. **VM Creation via Web UI**
-   - Navigate to Proxmox web interface
-   - Create VM with above specifications
-   - Attach Security Onion ISO
-   - Start installation
+### Step 2.3: Storage Configuration
+
+1. **Optimize Storage Layout**
+   ```bash
+   # Via Proxmox web interface or CLI
+   # local: Proxmox system (50GB)
+   # local-lvm: LXC containers (400GB)
+   
+   # Download Ubuntu 22.04 LTS template
+   pveam update
+   pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
+   ```
+
+## 🔒 Phase 3: Security Onion LXC Deployment
+
+### Step 3.1: Security Onion LXC Creation
+
+1. **LXC Specifications**
+   ```yaml
+   CT ID: 100
+   Name: security-onion
+   Template: Ubuntu 22.04 LTS
+   CPU: 2 cores
+   RAM: 5GB
+   Disk: 80GB
+   Network: vmbr0 (bridged)
+   Features: nesting=1,keyctl=1 (required for Security Onion)
+   Privileged: true (required for network monitoring)
+   ```
+
+2. **LXC Creation via Web UI**
+   ```bash
+   # In Proxmox web interface
+   # Create LXC container with above specifications
+   # Use Ubuntu 22.04 template
+   # Enable required features for Security Onion
+   ```
+
+3. **Security Onion Installation in LXC**
+   ```bash
+   # Enter LXC container
+   pct enter 100
+   
+   # Update system
+   apt update && apt upgrade -y
+   
+   # Download and install Security Onion
+   wget https://download.securityonion.net/file/securityonion/securityonion-2.3.190-20240214.iso
+   # Mount and install Security Onion components
+   ```
 
 ### Step 2.2: Security Onion Configuration
 
@@ -170,99 +285,104 @@ This alternative deployment guide walks you through deploying the SunnyLabX infr
    # Monitor traffic between nodes and external connections
    ```
 
-## 🐳 Phase 3: Ubuntu Docker VM Deployment
+## 🐳 Phase 4: Ubuntu Docker LXC Deployment
 
-### Step 3.1: Ubuntu VM Creation
+### Step 4.1: Ubuntu Docker LXC Creation
 
-1. **VM Specifications**
+1. **LXC Specifications**
    ```yaml
-   VM ID: 101
+   CT ID: 101
    Name: ubuntu-docker
-   CPU: 1.5 cores
-   RAM: 8GB
-   Disk: 300GB (thin provisioned)
+   Template: Ubuntu 22.04 LTS
+   CPU: 2 cores
+   RAM: 10GB
+   Disk: 200GB
    Network: vmbr0 (bridged)
-   Boot: Ubuntu Server 22.04 LTS
+   Features: nesting=1,keyctl=1 (required for Docker)
+   Privileged: true (required for Docker operations)
    ```
 
-2. **Ubuntu Installation**
+2. **LXC Setup and Docker Installation**
    ```bash
-   # Standard Ubuntu Server installation
-   # User: shawnji
-   # Enable SSH server
-   # Install Docker during setup or post-installation
-   ```
-
-3. **Post-Installation Setup**
-   ```bash
-   # SSH into Ubuntu VM
-   ssh shawnji@192.168.0.253  # Or assigned DHCP IP
+   # Enter LXC container
+   pct enter 101
+   
+   # Create user
+   adduser shawnji
+   usermod -aG sudo shawnji
    
    # Update system
-   sudo apt update && sudo apt upgrade -y
+   apt update && apt upgrade -y
    
-   # Install Docker
+   # Install Docker in LXC (requires privileged container)
    curl -fsSL https://get.docker.com -o get-docker.sh
-   sudo sh get-docker.sh
-   sudo usermod -aG docker $USER
+   sh get-docker.sh
+   usermod -aG docker shawnji
    
    # Install Docker Compose
-   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-   sudo chmod +x /usr/local/bin/docker-compose
+   curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   chmod +x /usr/local/bin/docker-compose
+   
+   # Enable Docker service
+   systemctl enable docker
+   systemctl start docker
    ```
 
-### Step 3.2: Configure Static IP for Ubuntu VM
+### Step 4.2: Configure Static IP for Ubuntu LXC
 
 1. **Set Static IP**
    ```bash
-   # /etc/netplan/00-installer-config.yaml
+   # /etc/netplan/10-lxc.yaml
    network:
      version: 2
      ethernets:
-       ens18:
+       eth0:
          dhcp4: false
          addresses: [192.168.0.252/24]
          gateway4: 192.168.0.1
          nameservers:
            addresses: [192.168.0.253, 1.1.1.1]
    
-   sudo netplan apply
+   netplan apply
    ```
 
-### Step 3.3: Docker Services Deployment
+### Step 4.3: Docker Services Deployment
+
+**Note**: Only 18 services will be deployed on Node #2. The remaining 38 services stay on Node #1.
 
 1. **Clone Repository**
    ```bash
+   su - shawnji
    git clone https://github.com/BlkLeg/sunnylabx.git
    cd sunnylabx
    ```
 
-2. **Deploy Services** (modified from original)
+2. **Deploy Services** (communication stack eliminated)
    ```bash
-   # Network Services
+   # Network Services (4 services)
    cd goingmerry/networking
    docker-compose up -d
    
-   # Monitoring Services  
+   # Monitoring Services (6 services)
    cd ../monitoring
    docker-compose up -d
    
-   # Management Services
+   # Management Services (2 services)
    cd ../management
    docker-compose up -d
    
-   # Communication Services
-   cd ../communication
+   # Security Services (5 services - no Wazuh, handled by Security Onion)
+   cd ../security
    docker-compose up -d
    
-   # Automation Services
+   # Automation Services (1 service)
    cd ../automation
    docker-compose up -d
    
-   # Note: Security services modified - no Wazuh (replaced by Security Onion)
+   # Total: 18 Docker services (communication stack eliminated)
    ```
 
-## 📝 Phase 4: Modified Docker Compose Configurations
+## 📝 Phase 5: Modified Docker Compose Configurations
 
 ### Step 4.1: Updated Security Stack
 
@@ -458,23 +578,23 @@ volumes:
   adguard_conf:
 ```
 
-## 🔧 Phase 5: Ansible Configuration Updates
+## 🔧 Phase 6: Ansible Configuration Updates
 
 ### Step 5.1: Updated Inventory
 
 **Modified: ansible/hosts.ini**
 ```ini
-# SunnyLabX Proxmox Route Inventory
-# Node configuration for Proxmox-based deployment
+# SunnyLabX Proxmox LXC Route Inventory
+# Node configuration for Proxmox LXC-based deployment
 
 [all]
 # Physical nodes
 node1 ansible_host=192.168.0.254 ansible_user=shawnji ansible_ssh_private_key_file=~/.ssh/id_rsa
 proxmox-host ansible_host=192.168.0.253 ansible_user=root ansible_ssh_private_key_file=~/.ssh/id_rsa
 
-# Virtual machines on Node #2
-ubuntu-vm ansible_host=192.168.0.252 ansible_user=shawnji ansible_ssh_private_key_file=~/.ssh/id_rsa
-security-onion ansible_host=192.168.0.100 ansible_user=admin ansible_ssh_private_key_file=~/.ssh/id_rsa
+# LXC containers on Node #2
+ubuntu-lxc ansible_host=192.168.0.252 ansible_user=shawnji ansible_ssh_private_key_file=~/.ssh/id_rsa
+security-onion ansible_host=192.168.0.100 ansible_user=root ansible_ssh_private_key_file=~/.ssh/id_rsa
 
 [thousandsunny]
 # Node #1 - Application & Content Hub
@@ -484,15 +604,15 @@ node1
 # Node #2 - Proxmox host
 proxmox-host
 
-[goingmerry_vms]
-# VMs running on Node #2
-ubuntu-vm
+[goingmerry_lxcs]
+# LXC containers running on Node #2
+ubuntu-lxc
 security-onion
 
 [docker_hosts]
 # Hosts running Docker services
 node1
-ubuntu-vm
+ubuntu-lxc
 
 [security_monitoring]
 # Security monitoring platforms
@@ -500,7 +620,7 @@ security-onion
 
 [management_nodes]
 # Management and monitoring services
-ubuntu-vm
+ubuntu-lxc
 ```
 
 ### Step 5.2: Proxmox-Specific Playbooks
@@ -630,7 +750,7 @@ ubuntu-vm
         state: restarted
 ```
 
-## 📊 Phase 6: Monitoring & Verification
+## 📊 Phase 7: Monitoring & Verification
 
 ### Step 6.1: Service Verification
 
@@ -677,7 +797,7 @@ ubuntu-vm
    ssh admin@192.168.0.100 "free -h && df -h"
    ```
 
-## 🔄 Phase 7: Log Integration & Security Monitoring
+## 🔄 Phase 8: Log Integration & Security Monitoring
 
 ### Step 7.1: Centralized Logging
 
@@ -768,36 +888,143 @@ ubuntu-vm
    ssh shawnji@192.168.0.252 "docker run --rm -v nginx_data:/data -v $(pwd):/backup ubuntu tar czf /backup/nginx_backup.tar.gz /data"
    ```
 
-## 📋 Resource Allocation Summary
+## 📋 Hybrid Resource Allocation Summary
 
-### Proxmox Host (GoingMerry) - 16GB RAM, 4 CPU cores
+### Node #1 (ThousandSunny) - Direct Docker - 12GB RAM, 4 CPU cores
 ```
-├── Proxmox Host: 2GB RAM, 0.5 CPU cores
-├── Security Onion VM: 6GB RAM, 2 CPU cores  
-├── Ubuntu Docker VM: 8GB RAM, 1.5 CPU cores
-└── Available Headroom: 0GB RAM, 0 CPU cores
+Resource-Constrained Direct Deployment:
+├── System Reserve: 2GB RAM, 0.5 CPU cores
+├── Available for Containers: 10GB RAM, 3.5 CPU cores
+├── Estimated Need: 17-23GB RAM, 6.6-12.6 CPU cores
+├── Strategy: Aggressive resource limits, monitoring, AI services optional
+└── Status: Resource pressure but manageable with careful tuning
 ```
 
-### Service Distribution
+### Node #2 (GoingMerry) - Proxmox LXC - 16GB RAM, 4 CPU cores
 ```
-Node #1 (ThousandSunny):
-├── Media Services (Plex, Jellyfin, ARR Suite)
-├── Home Automation (Home Assistant, IoT)
-├── Development (Gitea, Databases)
-└── AI Services (if implemented)
+Resource-Abundant Virtualized Deployment:
+├── Proxmox Host: 1GB RAM, 0.25 CPU cores
+├── Security Onion LXC: 5GB RAM, 2 CPU cores  
+├── Ubuntu Docker LXC: 10GB RAM, 2 CPU cores (18 services)
+└── Utilization: 100% RAM, 106% CPU (perfect fit)
+```
 
-Node #2 (Proxmox):
-├── Security Onion VM:
+### Optimized Service Distribution
+
+#### Node #1 (ThousandSunny) - 38 Services Direct on Ubuntu
+```
+Heavy Workloads (Direct Hardware Access Required):
+├── Media Services (9): Plex, Jellyfin, ARR Suite, Immich, Kavita, Overseerr
+│   └── Requires: Direct HDD access, GPU transcoding, high I/O
+├── Infrastructure (15): PostgreSQL, Redis, Gitea, Nextcloud, DevOps tools
+│   └── Requires: Persistent storage, database performance
+├── IoT/Home Automation (7): Home Assistant, MQTT, InfluxDB, Zigbee2MQTT
+│   └── Requires: USB device access, real-time processing
+├── Torrent/Download (3): qBittorrent, Deluge
+│   └── Requires: Direct storage access, high network I/O
+├── AI Services (2): Ollama, WebUI (optional/resource-permitting)
+│   └── Requires: Maximum CPU/RAM allocation
+└── Agents (2): Portainer Agent, Wazuh Agent
+    └── Low resource overhead
+```
+
+#### Node #2 (GoingMerry) - 18 Services in Proxmox LXCs
+```
+Management & Monitoring Workloads (Virtualization Benefits):
+├── Security Onion LXC (dedicated):
 │   ├── SIEM/Log Analysis
-│   ├── Network IDS/IPS
+│   ├── Network IDS/IPS  
 │   ├── Threat Detection
 │   └── Incident Response
-└── Ubuntu Docker VM:
-    ├── Network Services (Nginx, AdGuard, Cloudflare)
-    ├── Monitoring (Prometheus, Grafana)
-    ├── Management (Portainer)
-    ├── Identity (Authentik)
-    └── Communication (Matrix)
+└── Ubuntu Docker LXC (18 services):
+    ├── Network Services (4): Nginx Proxy, AdGuard, Cloudflare, Portainer Proxy
+    ├── Monitoring (6): Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower
+    ├── Security (5): Authentik, CrowdSec, Suricata, Vaultwarden
+    ├── Management (2): Portainer Controller
+    └── Automation (1): n8n
 ```
 
-This Proxmox route provides enhanced security monitoring, better resource isolation, and maintains all the functionality of the original Ubuntu-based deployment while adding enterprise-grade virtualization capabilities and dedicated security infrastructure with Security Onion.
+### Why Hybrid Approach?
+
+**Node #1 Rationale (Direct Docker)**:
+- ❌ **Insufficient RAM**: 12GB vs 17-23GB needed
+- ⚡ **Performance Critical**: Media transcoding, database operations
+- 💾 **Storage Intensive**: Direct 9TB HDD access required
+- 🎯 **Efficiency Focus**: Every MB of overhead matters
+
+**Node #2 Rationale (Proxmox LXC)**:
+- ✅ **Resource Abundance**: 16GB vs 8GB needed  
+- 🔒 **Security Benefits**: Isolation, dedicated SIEM
+- 📊 **Management**: Easy backup, snapshots, resource control
+- 🚀 **Modern Hardware**: Efficient virtualization support
+
+## 🎯 Implementation Decision Matrix
+
+### Docker Container vs LXC vs VM Analysis
+
+| Factor | Node #1 (Direct Docker) | Node #2 (LXC) | Alternative (VM) |
+|--------|-------------------------|----------------|------------------|
+| **Resource Overhead** | 0% | ~200MB per container | ~1-2GB per VM |
+| **Performance** | Native | 95-98% native | 85-90% native |
+| **Isolation** | Process-level | Container-level | Full isolation |
+| **Backup/Recovery** | Volume backups | LXC snapshots | VM snapshots |
+| **Management** | Docker CLI | Proxmox + Docker | Proxmox + SSH |
+| **Hardware Access** | Direct | Limited | Limited |
+| **Resource Flexibility** | Limited | Dynamic | Dynamic |
+| **Boot Time** | Instant | 5-10 seconds | 30-60 seconds |
+
+### Final Recommendation: **LXC for Node #2**
+
+**LXC Advantages for SunnyLabX**:
+✅ **Perfect Resource Fit**: 16GB accommodates 8GB workload + overhead  
+✅ **Near-Native Performance**: 95-98% efficiency for management workloads  
+✅ **Professional Management**: Proxmox web interface, snapshots, templates  
+✅ **Security Benefits**: Process isolation without VM overhead  
+✅ **Future Flexibility**: Easy to adjust resources, add containers  
+✅ **Backup Strategy**: Built-in LXC snapshots and templates  
+
+**Why Not VMs**:
+❌ **Resource Waste**: 1-2GB overhead per VM too expensive  
+❌ **Performance Penalty**: Unnecessary for containerized workloads  
+❌ **Complexity**: Extra management layer without significant benefits  
+
+## 🚀 Migration Path
+
+### Phase 1: Prepare Node #2 (GoingMerry)
+1. **Backup existing Ubuntu services** from GoingMerry
+2. **Install Proxmox VE** (fresh installation recommended)
+3. **Create LXC containers** with proper resource allocation
+4. **Migrate services** one category at a time
+
+### Phase 2: Optimize Node #1 (ThousandSunny)  
+1. **System tuning** for increased container density
+2. **Resource limit implementation** across all services
+3. **Storage optimization** for media and database workloads
+4. **Monitoring setup** for resource usage tracking
+
+### Phase 3: Integration & Testing
+1. **Inter-node communication** verification
+2. **NFS mount** optimization between nodes
+3. **Security Onion** deployment and log integration
+4. **Comprehensive testing** of all service interactions
+
+## 🎊 Benefits of Hybrid Proxmox Route
+
+### Enhanced Capabilities
+- **Enterprise Virtualization**: Professional VM/LXC management on Node #2
+- **Dedicated Security**: Security Onion SIEM with full network monitoring
+- **Resource Optimization**: Direct deployment where needed, virtualization where beneficial
+- **Operational Excellence**: Best practices for backup, monitoring, and maintenance
+
+### Maintained Performance  
+- **Media Performance**: Direct hardware access on Node #1 for transcoding
+- **Storage Performance**: No virtualization overhead for 9TB media storage
+- **Network Performance**: Optimized routing between physical and virtual services
+
+### Future-Proofing
+- **Scalability**: Easy to add new LXC containers on Node #2
+- **Testing**: Safe isolated environments for new services
+- **Backup Strategy**: Professional-grade backup and recovery procedures
+- **Upgrade Path**: Foundation for future hardware upgrades
+
+This hybrid Proxmox route provides the optimal balance of performance, resource utilization, and management capabilities tailored specifically to your SunnyLabX hardware constraints and service requirements.
