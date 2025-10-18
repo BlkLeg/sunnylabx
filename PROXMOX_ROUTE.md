@@ -13,8 +13,8 @@ This deployment guide walks you through a **hybrid virtualization approach** opt
   - **38 services** running directly on Ubuntu (no virtualization overhead)
   - **Media transcoding**, large storage access, resource-intensive workloads
 - **Node #2 (GoingMerry)**: Proxmox VE 8.x - Virtualized Management Hub
-  - **Ubuntu Docker LXC**: 17 containers in LXC + Security Onion
-  - **Security Onion LXC**: Dedicated SIEM/IDS platform
+  - **Ubuntu Docker LXC**: 17 containers in LXC
+  - **Wazuh Manager VM**: Dedicated SIEM/IDS platform
 
 ### Why Hybrid Approach?
 - **Node #1**: Resource-constrained (12GB for 17-23GB workload) - needs maximum efficiency
@@ -44,15 +44,15 @@ This deployment guide walks you through a **hybrid virtualization approach** opt
 - **Hardware**: Mini PC, Intel Twin Lake-N150 (4 cores), 16GB DDR4, 500GB NVMe
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.253
-- **Services**: 17 containers in LXC + Security Onion
+- **Services**: 17 containers in LXC + Wazuh Manager VM
 - **Resource Advantage**: 16GB available vs 8GB estimated need
 
-#### LXC Resource Allocation Strategy
+#### VM/LXC Resource Allocation Strategy
 ```
 Total Resources: 16GB RAM, 4 CPU cores
 ├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
-├── Ubuntu Docker LXC: 9GB RAM, 2 CPU (17 services)
-├── Security Onion LXC: 5GB RAM, 2 CPU (SIEM/IDS)
+├── Ubuntu Docker LXC: 11GB RAM, 2.5 CPU (17 services)
+├── Wazuh Manager VM: 4GB RAM, 1.5 CPU (SIEM/IDS)
 └── Utilization: 100% RAM, 106% CPU (optimal)
 ```
 
@@ -120,8 +120,8 @@ Since Node #1 will continue running Ubuntu with direct Docker deployment, we nee
 ### Prerequisites: Required ISO Files
 Before starting, ensure the following ISO files are available:
 - **Proxmox VE 8.2-1 ISO**: Downloaded and flashed to USB drive for installation
-- **Security Onion ISO**: `securityonion-2.3.190-20240214.iso` uploaded to Proxmox storage
-- **Ubuntu Cloud Image**: `jammy-server-cloudimg-amd64.img` uploaded to Proxmox storage
+- **Ubuntu Server 22.04 LTS ISO**: For Wazuh Manager VM installation
+- **Ubuntu Cloud Image**: `jammy-server-cloudimg-amd64.img` uploaded to Proxmox storage for LXC
 
 *Note: This guide assumes ISOs are pre-downloaded and available locally to avoid extended download times during deployment.*
 
@@ -154,11 +154,11 @@ Before starting, ensure the following ISO files are available:
    # Access Proxmox web interface: https://192.168.0.253:8006
    # Navigate to: Datacenter > Storage > local > ISO Images
    # Upload the following files:
-   # - securityonion-2.3.190-20240214.iso
-   # - jammy-server-cloudimg-amd64.img
+   # - ubuntu-22.04-server-amd64.iso (for Wazuh Manager VM)
+   # - jammy-server-cloudimg-amd64.img (for Ubuntu LXC)
    # 
    # Alternative: Copy via SCP if files are on local network
-   # scp securityonion-2.3.190-20240214.iso root@192.168.0.253:/var/lib/vz/template/iso/
+   # scp ubuntu-22.04-server-amd64.iso root@192.168.0.253:/var/lib/vz/template/iso/
    # scp jammy-server-cloudimg-amd64.img root@192.168.0.253:/var/lib/vz/template/iso/
    ```
 
@@ -211,7 +211,7 @@ Before starting, ensure the following ISO files are available:
    ```bash
    # Via Proxmox web interface or CLI
    # local: Proxmox system (50GB)
-   # local-lvm: LXC containers (400GB)
+   # local-lvm: VMs and LXC containers (400GB)
    
    # Verify Ubuntu 22.04 LTS template availability
    pveam update  # Update template list
@@ -219,63 +219,138 @@ Before starting, ensure the following ISO files are available:
    # If not found, upload jammy-server-cloudimg-amd64.img via web UI
    ```
 
-## 🔒 Phase 3: Security Onion LXC Deployment
+## 🔒 Phase 3: Wazuh Manager VM Deployment
 
-### Step 3.1: Security Onion LXC Creation
+### Step 3.1: Wazuh Manager VM Creation
 
-1. **LXC Specifications**
+1. **VM Specifications**
    ```yaml
-   CT ID: 100
-   Name: security-onion
-   Template: Ubuntu 22.04 LTS
-   CPU: 2 cores
-   RAM: 5GB
-   Disk: 80GB
+   VM ID: 100
+   Name: wazuh-manager
+   OS: Ubuntu Server 22.04 LTS
+   CPU: 2 cores (1.5 allocated)
+   RAM: 4GB
+   Disk: 50GB (Wazuh requires moderate storage)
    Network: vmbr0 (bridged)
-   Features: nesting=1,keyctl=1 (required for Security Onion)
-   Privileged: true (required for network monitoring)
+   Boot: CD/DVD (Ubuntu ISO)
    ```
 
-2. **LXC Creation via Web UI**
+2. **VM Creation via Proxmox Web UI**
    ```bash
-   # In Proxmox web interface
-   # Create LXC container with above specifications
-   # Use Ubuntu 22.04 template
-   # Enable required features for Security Onion
+   # In Proxmox web interface:
+   # 1. Click "Create VM"
+   # 2. General: VM ID 100, Name "wazuh-manager"
+   # 3. OS: Select ubuntu-22.04-server-amd64.iso
+   # 4. System: Default settings (UEFI if available)
+   # 5. Disks: 50GB disk on local-lvm storage
+   # 6. CPU: 2 cores, type "host"
+   # 7. Memory: 4096MB (4GB)
+   # 8. Network: vmbr0, Model "VirtIO"
    ```
 
-3. **Security Onion Installation in LXC**
+3. **Ubuntu Server Installation**
    ```bash
-   # Enter LXC container
-   pct enter 100
+   # Start VM and connect via Console
+   qm start 100
    
-   # Update system
-   apt update && apt upgrade -y
-   
-   # Security Onion ISO assumed to be pre-uploaded to Proxmox storage
-   # Navigate to Datacenter > Storage > local > ISO Images in Proxmox UI
-   # Verify securityonion-2.3.190-20240214.iso is available
+   # Follow Ubuntu Server installation:
+   # - Install Ubuntu Server (minimal)
+   # - Configure disk partitioning (use full 50GB)
+   # - Set timezone and create user account (wazuh)
+   # - Install OpenSSH server
    ```
 
-### Step 2.2: Security Onion Configuration
+### Step 3.2: Wazuh Manager Installation
 
-1. **Installation Type**: **Standalone**
-2. **Network Configuration**
+1. **Network Configuration**
    ```yaml
    Management Interface: ens18
    IP Address: 192.168.0.100/24
    Gateway: 192.168.0.1
    DNS: 192.168.0.1 (Router DNS)
+   Hostname: wazuh-manager
    ```
 
-3. **Security Onion Setup**
+2. **Wazuh Manager Installation**
    ```bash
-   # After installation, configure Security Onion
-   sudo so-setup
+   # SSH into the VM
+   ssh wazuh@192.168.0.100
    
-   # Choose: EVAL (evaluation mode for homelab)
-   # Set admin email and passwords
-   # Configure network monitoring interface
+   # Update system
+   sudo apt update && sudo apt upgrade -y
+   
+   # Install required packages
+   sudo apt install curl apt-transport-https lsb-release gnupg -y
+   
+   # Add Wazuh repository
+   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
+   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee -a /etc/apt/sources.list.d/wazuh.list
+   
+   # Update package list
+   sudo apt update
+   
+   # Install Wazuh Manager
+   sudo apt install wazuh-manager -y
+   
+   # Enable and start Wazuh Manager
+   sudo systemctl daemon-reload
+   sudo systemctl enable wazuh-manager
+   sudo systemctl start wazuh-manager
+   ```
+
+3. **Wazuh Dashboard Installation (Optional - Web UI)**
+   ```bash
+   # Install Wazuh Dashboard for web management
+   sudo apt install wazuh-dashboard -y
+   
+   # Configure Dashboard
+   sudo -u wazuh-dashboard /usr/share/wazuh-dashboard/bin/wazuh-dashboard-keystore create
+   sudo -u wazuh-dashboard /usr/share/wazuh-dashboard/bin/wazuh-dashboard-keystore add opensearch.password
+   
+   # Enable and start Dashboard
+   sudo systemctl daemon-reload
+   sudo systemctl enable wazuh-dashboard
+   sudo systemctl start wazuh-dashboard
+   
+   # Dashboard will be available at: https://192.168.0.100:443
+   ```
+
+### Step 3.3: Wazuh Agent Configuration for Node #2 (LXC)
+
+1. **Install Wazuh Agent in Ubuntu Docker LXC**
+   ```bash
+   # Enter the Ubuntu LXC container
+   pct enter 101  # Assuming LXC ID 101 for Ubuntu Docker
+   
+   # Add Wazuh repository (same steps as manager)
+   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
+   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | tee -a /etc/apt/sources.list.d/wazuh.list
+   
+   # Install Wazuh Agent
+   apt update
+   WAZUH_MANAGER="192.168.0.100" apt install wazuh-agent -y
+   
+   # Enable and start agent
+   systemctl daemon-reload
+   systemctl enable wazuh-agent
+   systemctl start wazuh-agent
+   ```
+
+2. **Agent Registration and Key Management**
+   ```bash
+   # On Wazuh Manager (192.168.0.100)
+   # Register the LXC agent
+   sudo /var/ossec/bin/manage_agents -a
+   # Agent Name: ubuntu-docker-lxc
+   # Agent IP: 192.168.0.252
+   
+   # Extract agent key
+   sudo /var/ossec/bin/manage_agents -e AGENT_ID
+   
+   # On LXC Agent (192.168.0.252)
+   # Import the key
+   sudo /var/ossec/bin/manage_agents -i EXTRACTED_KEY
+   sudo systemctl restart wazuh-agent
    ```
 
 4. **Post-Installation**
@@ -287,20 +362,47 @@ Before starting, ensure the following ISO files are available:
    sudo ufw allow from 192.168.0.0/24
    ```
 
-### Step 2.3: Security Onion Integration
+### Step 3.4: Wazuh Agent for Node #1 (Future Deployment)
+
+1. **Prepare Node #1 Agent Installation Script**
+   ```bash
+   # Create script for future deployment to Node #1
+   cat > /tmp/install-wazuh-agent-node1.sh << 'EOF'
+   #!/bin/bash
+   # Wazuh Agent installation for Node #1 (ThousandSunny)
+   
+   # Add Wazuh repository
+   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
+   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | tee -a /etc/apt/sources.list.d/wazuh.list
+   
+   # Install agent
+   apt update
+   WAZUH_MANAGER="192.168.0.100" apt install wazuh-agent -y
+   
+   # Configure agent
+   systemctl daemon-reload
+   systemctl enable wazuh-agent
+   systemctl start wazuh-agent
+   EOF
+   
+   # Copy script to easily accessible location
+   scp /tmp/install-wazuh-agent-node1.sh shawnji@192.168.0.254:/home/shawnji/
+   ```
+
+### Step 3.5: Wazuh Integration
 
 1. **Log Sources Configuration**
-   - Configure syslog forwarding from all nodes
-   - Set up Security Onion to receive logs from:
+   - Configure syslog forwarding from all nodes to Wazuh Manager
+   - Set up Wazuh to receive logs from:
      - Proxmox host logs
-     - Ubuntu VM logs  
-     - ThousandSunny logs
+     - Ubuntu LXC logs  
+     - ThousandSunny logs (after agent installation)
      - Docker container logs
 
-2. **Network Monitoring**
+2. **Docker Container Monitoring**
    ```bash
-   # Configure network tap/mirror for traffic analysis
-   # Monitor traffic between nodes and external connections
+   # Configure Docker log driver to forward to Wazuh
+   # This will be configured in the LXC Docker setup
    ```
 
 ## 🐳 Phase 4: Ubuntu Docker LXC Deployment
@@ -389,7 +491,7 @@ Before starting, ensure the following ISO files are available:
    cd ../management
    docker-compose up -d
    
-   # Security Services (5 services - no Wazuh, handled by Security Onion)
+   # Security Services (5 services - Wazuh agents integrated with VM)
    cd ../security
    docker-compose up -d
    
@@ -422,7 +524,7 @@ services:
           memory: 512M
     # ... configuration
 
-  # Collaborative IPS (Security Onion integration)
+  # Collaborative IPS (Wazuh integration)
   crowdsec:
     image: crowdsecurity/crowdsec:latest
     container_name: crowdsec
@@ -437,10 +539,10 @@ services:
           memory: 256M
     environment:
       - COLLECTIONS=crowdsecurity/linux crowdsecurity/sshd
-      - SECURITY_ONION_API=https://192.168.0.100:9200
+      - WAZUH_MANAGER_API=https://192.168.0.100:55000
     # ... configuration
 
-  # Network IDS (Suricata - coordinates with Security Onion)
+  # Network IDS (Suricata - coordinates with Wazuh)
   suricata:
     image: jasonish/suricata:latest
     container_name: suricata
@@ -453,7 +555,7 @@ services:
         reservations:
           cpus: '0.1'
           memory: 256M
-    # Forward alerts to Security Onion
+    # Forward alerts to Wazuh Manager
     # ... configuration
 
   # Password manager
@@ -471,7 +573,7 @@ services:
           memory: 128M
     # ... configuration
 
-  # Log shipper to Security Onion
+  # Log shipper to Wazuh Manager
   logstash:
     image: docker.elastic.co/logstash/logstash:8.10.0
     container_name: logstash-so
@@ -485,8 +587,8 @@ services:
           cpus: '0.1'
           memory: 256M
     environment:
-      - SECURITY_ONION_HOST=192.168.0.100
-    # Forward logs to Security Onion
+      - WAZUH_MANAGER_HOST=192.168.0.100
+    # Forward logs to Wazuh Manager
     # ... configuration
 
 networks:
@@ -573,8 +675,8 @@ volumes:
 
 **Modified: ansible/hosts.ini**
 ```ini
-# SunnyLabX Proxmox LXC Route Inventory
-# Node configuration for Proxmox LXC-based deployment
+# SunnyLabX Proxmox Hybrid Route Inventory
+# Node configuration for Proxmox hybrid VM/LXC deployment
 
 [all]
 # Physical nodes
@@ -596,7 +698,7 @@ proxmox-host
 [goingmerry_lxcs]
 # LXC containers running on Node #2
 ubuntu-lxc
-security-onion
+wazuh-manager
 
 [docker_hosts]
 # Hosts running Docker services
@@ -605,7 +707,7 @@ ubuntu-lxc
 
 [security_monitoring]
 # Security monitoring platforms
-security-onion
+wazuh-manager
 
 [management_nodes]
 # Management and monitoring services
@@ -627,7 +729,7 @@ ubuntu-lxc
   
   vars:
     # VM configurations
-    security_onion_vmid: 100
+    wazuh_manager_vmid: 100
     ubuntu_docker_vmid: 101
     
   tasks:
@@ -652,21 +754,33 @@ ubuntu-lxc
       fail:
         msg: "Ubuntu cloud image not found. Please upload jammy-server-cloudimg-amd64.img to Proxmox storage."
       when: not ubuntu_template.stat.exists
+      
+    - name: Verify Ubuntu Server ISO exists
+      stat:
+        path: "/var/lib/vz/template/iso/ubuntu-22.04-server-amd64.iso"
+      register: ubuntu_server_iso
+      
+    - name: Fail if Ubuntu Server ISO not found
+      fail:
+        msg: "Ubuntu Server ISO not found. Please upload ubuntu-22.04-server-amd64.iso to Proxmox storage."
+      when: not ubuntu_server_iso.stat.exists
         
-    - name: Create Security Onion VM
+    - name: Create Wazuh Manager VM
       proxmox_kvm:
         api_host: "{{ ansible_host }}"
         api_user: "root@pam"
         api_password: "{{ proxmox_password }}"
-        vmid: "{{ security_onion_vmid }}"
-        name: "security-onion"
+        vmid: "{{ wazuh_manager_vmid }}"
+        name: "wazuh-manager"
         node: "{{ inventory_hostname }}"
         cores: 2
-        memory: 6144
+        memory: 4096
         net:
           net0: "virtio,bridge=vmbr0"
         virtio:
-          virtio0: "local-lvm:100"
+          virtio0: "local-lvm:50"
+        ide:
+          ide2: "local:iso/ubuntu-22.04-server-amd64.iso,media=cdrom"
         state: present
         
     - name: Create Ubuntu Docker VM
@@ -688,22 +802,22 @@ ubuntu-lxc
         state: present
 ```
 
-**New: ansible/security-onion-playbook.yml**
+**New: ansible/wazuh-manager-playbook.yml**
 ```yaml
 ---
-# Security Onion Configuration Playbook
-# Configures Security Onion VM for SunnyLabX monitoring
+# Wazuh Manager Configuration Playbook
+# Configures Wazuh Manager VM for SunnyLabX monitoring
 
-- name: Configure Security Onion VM
-  hosts: security-onion
+- name: Configure Wazuh Manager VM
+  hosts: wazuh-manager
   become: yes
   gather_facts: yes
   
   vars:
-    so_admin_email: "admin@thousandsunny.win"
-    log_sources:
+    wazuh_admin_email: "admin@thousandsunny.win"
+    agent_sources:
       - "192.168.0.253"  # Proxmox host
-      - "192.168.0.252"  # Ubuntu VM
+      - "192.168.0.252"  # Ubuntu LXC
       - "192.168.0.254"  # ThousandSunny
       
   tasks:
@@ -892,13 +1006,13 @@ Resource-Constrained Direct Deployment:
 └── Status: Resource pressure but manageable with careful tuning
 ```
 
-### Node #2 (GoingMerry) - Proxmox LXC - 16GB RAM, 4 CPU cores
+### Node #2 (GoingMerry) - Proxmox VM/LXC - 16GB RAM, 4 CPU cores
 ```
 Resource-Abundant Virtualized Deployment:
 ├── Proxmox Host: 1GB RAM, 0.25 CPU cores
-├── Security Onion LXC: 5GB RAM, 2 CPU cores  
-├── Ubuntu Docker LXC: 10GB RAM, 2 CPU cores (18 services)
-└── Utilization: 100% RAM, 106% CPU (perfect fit)
+├── Wazuh Manager VM: 4GB RAM, 1.5 CPU cores  
+├── Ubuntu Docker LXC: 11GB RAM, 2.25 CPU cores (17 services)
+└── Utilization: 100% RAM, 100% CPU (perfect fit)
 ```
 
 ### Optimized Service Distribution
@@ -920,14 +1034,14 @@ Heavy Workloads (Direct Hardware Access Required):
     └── Low resource overhead
 ```
 
-#### Node #2 (GoingMerry) - 18 Services in Proxmox LXCs
+#### Node #2 (GoingMerry) - 17 Services + Wazuh Manager VM
 ```
 Management & Monitoring Workloads (Virtualization Benefits):
-├── Security Onion LXC (dedicated):
+├── Wazuh Manager VM (dedicated):
 │   ├── SIEM/Log Analysis
-│   ├── Network IDS/IPS  
-│   ├── Threat Detection
-│   └── Incident Response
+│   ├── Security Event Management
+│   ├── Agent Management
+│   └── Compliance Monitoring
 └── Ubuntu Docker LXC (17 services):
     ├── Network Services (3): Nginx Proxy, Cloudflare, Portainer Proxy
     ├── Monitoring (6): Prometheus, Grafana, Loki, Promtail, Uptime Kuma, Watchtower
@@ -954,22 +1068,25 @@ Management & Monitoring Workloads (Virtualization Benefits):
 
 ### Docker Container vs LXC vs VM Analysis
 
-| Factor | Node #1 (Direct Docker) | Node #2 (LXC) | Alternative (VM) |
-|--------|-------------------------|----------------|------------------|
-| **Resource Overhead** | 0% | ~200MB per container | ~1-2GB per VM |
-| **Performance** | Native | 95-98% native | 85-90% native |
+| Factor | Node #1 (Direct Docker) | Node #2 (LXC - Docker Services) | Node #2 (VM - Wazuh Manager) |
+|--------|-------------------------|----------------------------------|--------------------------------|
+| **Resource Overhead** | 0% | ~200MB per container | ~1GB for VM |
+| **Performance** | Native | 95-98% native | 90-95% native |
 | **Isolation** | Process-level | Container-level | Full isolation |
 | **Backup/Recovery** | Volume backups | LXC snapshots | VM snapshots |
 | **Management** | Docker CLI | Proxmox + Docker | Proxmox + SSH |
 | **Hardware Access** | Direct | Limited | Limited |
 | **Resource Flexibility** | Limited | Dynamic | Dynamic |
 | **Boot Time** | Instant | 5-10 seconds | 30-60 seconds |
+| **Use Case** | Resource-constrained media | Management services | SIEM/Security monitoring |
 
-### Final Recommendation: **LXC for Node #2**
+### Final Recommendation: **Hybrid LXC + VM for Node #2**
 
-**LXC Advantages for SunnyLabX**:
-✅ **Perfect Resource Fit**: 16GB accommodates 8GB workload + overhead  
-✅ **Near-Native Performance**: 95-98% efficiency for management workloads  
+**Architecture Decision**:
+- ✅ **LXC for Docker Services**: 17 containerized services benefit from lightweight virtualization
+- ✅ **VM for Wazuh Manager**: Dedicated SIEM platform with full OS isolation
+- ✅ **Optimized Resource Fit**: 16GB accommodates mixed workloads (11GB LXC + 4GB VM + 1GB host)
+- ✅ **Agent-Based Monitoring**: Wazuh agents deployed to LXC and future Node #1 deployment  
 ✅ **Professional Management**: Proxmox web interface, snapshots, templates  
 ✅ **Security Benefits**: Process isolation without VM overhead  
 ✅ **Future Flexibility**: Easy to adjust resources, add containers  
