@@ -29,8 +29,8 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Hardware**: Dell XPS 8500, i7-3770 (4c/8t), 12GB DDR3, 1TB SSD + 9TB HDD
 - **Host OS**: Proxmox VE 8.x
 - **IP**: 192.168.0.254
-- **Services**: 39+ containers in Debian LXC (includes Dockerized Wazuh SIEM)
-- **Resource Challenge**: 12GB available vs 12GB estimated need (optimized with SWAP buffer)
+- **Services**: 37+ containers in Debian LXC (includes Dockerized Wazuh SIEM)
+- **Resource Advantage**: 12GB available vs 7-8GB estimated need (comfortable headroom)
 - **Strategy**: LXC deployment with aggressive resource limits, direct storage bind mounts
 
 #### Service Categories (Node #1) - Optimized
@@ -38,9 +38,9 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **IoT/Home Automation (7)**: Home Assistant, MQTT, InfluxDB (~2-3GB RAM)
 - **Infrastructure (13)**: Databases, DevOps, Gitea, Nextcloud (~4-5GB RAM) - **Duplicati eliminated**
 - **Security/SIEM (3)**: Wazuh Manager, Wazuh Indexer, Wazuh Dashboard (~1.5GB RAM)
-- **AI Services (2)**: Ollama, WebUI (~4-6GB RAM if enabled)
 - **Torrent/Download (3)**: qBittorrent, Deluge (~1GB RAM)
 - **Agents (2)**: **Portainer Agent eliminated**, Wazuh Agent (~128MB RAM)
+- **AI Automation**: n8n on Node #2 serves as sole AI agent
 
 ### Node #2 (GoingMerry) - Proxmox Management Hub
 - **Hardware**: Mini PC, Intel Twin Lake-N150 (4 cores), 16GB DDR4, 500GB NVMe
@@ -49,22 +49,21 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Services**: 9 containers in Debian LXC + OPNsense VM (communication stack eliminated)
 - **Resource Advantage**: 16GB available vs 4GB estimated need (significant headroom)
 
-#### VM/LXC Resource Allocation Strategy (Debian + Communication Elimination)
+#### VM/LXC Resource Allocation Strategy (Debian)
 ```
 Total Resources: 16GB RAM, 4 CPU cores, 25GB SWAP
 ├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
-├── Debian Docker LXC: 14GB RAM, 3.25 CPU (39+ services - includes Wazuh stack)
+├── Debian Docker LXC: 10GB RAM, 3.25 CPU (37+ services - includes Wazuh stack)
 ├── OPNsense Firewall VM: 1GB RAM, 0.5 CPU (NordVPN distribution)
-└── Utilization: 100% RAM, 100% CPU + 25GB SWAP buffer
+└── Utilization: 75% RAM, 100% CPU + 4GB unallocated + 25GB SWAP buffer
 ```
 
-#### Service Categories (Node #2) - Communication Stack Eliminated
-- **Networking (2)**: Nginx Proxy, Cloudflare (~256MB RAM) - **Portainer Proxy eliminated**
-- **Monitoring (6)**: Prometheus, Grafana, Loki, Promtail, AlertManager, Node-Exporter (~2-3GB RAM) - **Uptime Kuma, Watchtower eliminated**
-- **Security (2)**: Authentik, CrowdSec (~1GB RAM) - **Communication services eliminated (Matrix, Discord, SMTP, Webhooks)**
+#### Service Categories (Node #2) - Streamlined
+- **Networking (2)**: Nginx Proxy, Cloudflare (~256MB RAM)
+- **Monitoring (6)**: Prometheus, Grafana, Loki, Promtail, AlertManager, Node-Exporter (~2-3GB RAM)
+- **Security (2)**: Authentik, CrowdSec (~1GB RAM)
 - **Security Enhancement**: OPNsense VM + Dockerized Wazuh SIEM stack (runs on Node #1)
-- **Management**: **Portainer entirely eliminated** (replaced by native Proxmox management)
-- **Automation (1)**: n8n (~512MB RAM) - **Total: 9 services (down from 13)**
+- **Automation (1)**: n8n (~512MB RAM) - **Total: 9 services**
 
 ## 🔧 Phase 1: Node #1 Proxmox Installation (ThousandSunny)
 
@@ -1678,13 +1677,13 @@ goingmerry
    ssh shawnji@192.168.0.252 "docker run --rm -v nginx_data:/data -v $(pwd):/backup ubuntu tar czf /backup/nginx_backup.tar.gz /data"
    ```
 
-## 📋 Dual Proxmox Cluster Resource Summary (Debian + Communication Elimination)
+## 📋 Dual Proxmox Cluster Resource Summary (Debian)
 
 ### Node #1 (ThousandSunny) - Proxmox VE + Debian LXC - 12GB RAM, 4 CPU cores, 12GB SWAP
 ```
 Optimized Proxmox Deployment with Dockerized Wazuh:
 ├── Proxmox Host: 2GB RAM, 0.5 CPU cores
-├── Debian Docker LXC: 10GB RAM (12GB SWAP), 3.5 CPU cores (39+ services including Wazuh)
+├── Debian Docker LXC: 10GB RAM (12GB SWAP), 3.5 CPU cores (37+ services including Wazuh)
 ├── Available for expansion: 0GB RAM, 0 CPU cores + SWAP buffer
 └── Utilization: 83% RAM (improved from 117%), 87.5% CPU (improved efficiency)
 ```
@@ -1699,9 +1698,9 @@ Enhanced Security Proxmox Deployment (Communication Stack Eliminated):
 └── Utilization: 50% RAM, 75% CPU (excellent headroom + 1GB saved from communication elimination)
 ```
 
-### Optimized Service Distribution (48+ Services Total - Communication Eliminated)
+### Optimized Service Distribution (46+ Services Total)
 
-#### Node #1 (ThousandSunny) - 39+ Services in LXC (Including Dockerized Wazuh)
+#### Node #1 (ThousandSunny) - 37+ Services in LXC (Including Dockerized Wazuh)
 ```
 Storage & Media-Intensive Workloads + Security:
 ├── Media Services (9): Plex OR Jellyfin (backup), ARR Suite, Immich, Kavita, Overseerr
@@ -1717,19 +1716,16 @@ Storage & Media-Intensive Workloads + Security:
 │   └── Benefits: Local development environment
 ├── Security Monitoring (3): Wazuh Manager, Wazuh Indexer, Wazuh Dashboard
 │   └── Benefits: Dockerized SIEM stack, no VM overhead, better containerization practice
-└── Total: 39+ services (increased from 36, but better resource efficiency)
+└── Total: 37+ services (optimized resource efficiency)
 ```
 
-#### Node #2 (GoingMerry) - 9 Services in LXC (Communication Stack Eliminated)
+#### Node #2 (GoingMerry) - 9 Services in LXC (Streamlined)
 ```
-Network & Management Workloads (Streamlined):
+Network & Management Workloads:
 ├── Network Services (2): Nginx Proxy, Cloudflare DDNS
-│   └── Note: AdGuard Home eliminated, Traefik consolidated
 ├── Monitoring (6): Prometheus, Grafana, Loki, Promtail, AlertManager, Node-Exporter
-│   └── Note: Portainer, Duplicati, Watchtower, Uptime Kuma eliminated
 ├── Automation (1): n8n workflow automation
-│   └── Communication Services ELIMINATED: Matrix, Discord Bot, SMTP Relay, Webhooks (saves ~1GB RAM)
-└── Total: 9 services (reduced from 13, communication overkill eliminated)
+└── Total: 9 services (streamlined efficiency)
 ```
 
 #### Dockerized Wazuh SIEM Stack (Node #1 LXC)

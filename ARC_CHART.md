@@ -73,7 +73,7 @@
 │  │  │ • Jackett       │ │                 │ │ • Wazuh Dashboard│                   │   │
 │  │  └─────────────────┘ └─────────────────┘ └─────────────────┘                   │   │
 │  │                                                                                 │   │
-│  │                      Total: 39+ Services                                       │   │
+│  │                      Total: 37+ Services                                       │   │
 │  └─────────────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                         │
 │  ┌─────────────────────────────────────────────────────────────────────────────────┐   │
@@ -192,7 +192,7 @@
               │ │ Agents:1514     │ │   │     │ │                 │ │
               │ └─────────────────┘ │   │     │ └─────────────────┘ │
               │                     │   │     │                     │
-              │ • 39+ Services      │   │     │ • 13 Services       │
+              │ • 37+ Services      │   │     │ • 9 Services        │
               │ • Media & Storage   │   │     │ • Network & Comms   │
               │ • IoT & Development │   │     │ • Monitoring        │
               └─────────────────────┘   │     └─────────────────────┘
@@ -251,8 +251,8 @@
 ```
                           ┌─────────────────────────────────┐
                           │        SunnyLabX Cluster        │
-                          │     48+ Total Services          │
-                          │   (Communication Eliminated)    │
+                          │     46+ Total Services          │
+                          │      (Optimized Setup)          │
                           └─────────────┬───────────────────┘
                                         │
                         ┌───────────────┼───────────────┐
@@ -379,6 +379,6 @@
 
 ## 🎯 Architecture Summary
 
-This dual Proxmox cluster represents a **production-ready homelab** with enterprise-grade security, optimal resource utilization, and streamlined service deployment using **Debian containers**. The architecture successfully eliminates redundant services (including communication stack overkill), implements comprehensive security monitoring through Dockerized Wazuh, and provides secure network isolation via OPNsense with NordVPN integration.
+This dual Proxmox cluster represents a **production-ready homelab** with enterprise-grade security, optimal resource utilization, and streamlined service deployment using **Debian containers**. The architecture provides comprehensive security monitoring through Dockerized Wazuh and secure network isolation via OPNsense with NordVPN integration.
 
-**Total Infrastructure**: 48+ services across 2 nodes with 6.75GB RAM liberation (1GB additional from communication elimination) and enhanced security posture using Debian LXCs.
+**Total Infrastructure**: 46+ services across 2 nodes with optimized resource allocation and enhanced security posture using Debian LXCs.
