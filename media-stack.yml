@@ -1,0 +1,210 @@
+services:
+  # Primary media server (always active)
+  plex:
+    image: "linuxserver/plex:latest"
+    container_name: plex
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+      - VERSION=docker
+      - PLEX_CLAIM=${PLEX_CLAIM_TOKEN}
+    volumes:
+      - ./plex:/config
+      - '/media/hdd-1/TV Shows:/data/tv-1'
+      - '/media/hdd-1/Movies:/data/movies-1'
+      - '/media/hdd-2/tv-2:/data/tv-2'
+      - '/media/hdd-2/movies-2:/data/movies-2'
+      - '/media/hdd-3/tv-3:/data/tv-3'
+      - '/media/hdd-3/movies-3:/data/movies-3'
+      - '/media/hdd-4/tv:/data/tv-4'
+      - '/media/hdd-4/movies:/data/movies-4'
+    ports:
+      - "32400:32400"
+    network_mode: "host"  # Plex requires host networking for optimal performance
+
+  # Backup media server (only runs when Plex fails - saves 1-2GB RAM)
+  jellyfin:
+    image: "linuxserver/jellyfin:latest"
+    container_name: jellyfin
+    restart: "no"  # Disabled by default - manual start only
+    profiles:
+      - backup  # Docker Compose profile for conditional startup
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./jellyfin:/config
+      - '/media/hdd-1/TV Shows:/data/tv-1'
+      - '/media/hdd-1/Movies:/data/movies-1'
+      - '/media/hdd-2/tv-2:/data/tv-2'
+      - '/media/hdd-2/movies-2:/data/movies-2'
+      - '/media/hdd-3/tv-3:/data/tv-3'
+      - '/media/hdd-3/movies-3:/data/movies-3'
+      - '/media/hdd-4/tv:/data/tv-4'
+      - '/media/hdd-4/movies:/data/movies-4'
+    ports:
+      - "8096:8096"
+    networks:
+      - media_network
+  # Photo/video backup
+  # E-book/comic library
+  kavita:
+    image: lscr.io/linuxserver/kavita:latest
+    container_name: kavita
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./kavita/config:/config
+      - /media/hdd-2/books/Manga/:/data/manga
+      - /media/hdd-2/books/ebooks:/data/ebooks #optional
+    ports:
+      - 5000:5000
+    restart: unless-stopped
+
+  # ARR Suite - Media automation
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./prowlarr/data:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./sonarr/data:/config
+      - '/media/hdd-1/TV Shows:/data/tv-1' #optional
+      - '/media/hdd-2/tv-2:/data/tv-2' #optional
+      - '/media/hdd-3/tv-3:/data/tv-3' #optional
+      - '/media/hdd-4/tv:/data/tv-4' #optional
+      - '/media/hdd-4/downloads:/downloads' #optional
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./radarr/data:/config
+      - '/media/hdd-1/Movies:/data/movies-1' #optional
+      - '/media/hdd-2/movies-2:/data/movies-2' #optional
+      - '/media/hdd-3/movies-3:/data/movies-3' #optional
+      - '/media/hdd-4/movies:/data/movies-4' #optional
+      - '/media/hdd-4/downloads:/downloads' #optional
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./bazarr/config:/config
+      - '/media/hdd-1/Movies:/data/movies-1' #optional
+      - '/media/hdd-2/Movies:/data/movies-2' #optional
+      - '/media/hdd-3/Movies:/data/movies-3' #optional
+      - '/media/hdd-4/Movies:/data/movies-4' #optional
+      - '/media/hdd-1/TV Shows:/data/tv-1' #optional
+      - '/media/hdd-2/tv-2:/data/tv-2' #optional
+      - '/media/hdd-3/tv-3:/data/tv-3' #optional
+      - '/media/hdd-4/tv:/data/tv-4' #optional
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-UTC}
+    volumes:
+      - ./overseerr/config:/config
+    ports:
+      - 5055:5055
+    restart: unless-stopped
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    # extends:
+    #   file: hwaccel.transcoding.yml
+    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+    volumes:
+      # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
+      - ${UPLOAD_LOCATION}:/data
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    ports:
+      - '2283:2283'
+    depends_on:
+      - redis
+      - database
+    restart: always
+    healthcheck:
+      disable: false
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
+    # Example tag: ${IMMICH_VERSION:-release}-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    # extends: # uncomment this section for hardware acceleration - see https://docs.immich.app/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    volumes:
+      - model-cache:/cache
+    env_file:
+      - .env
+    restart: always
+    healthcheck:
+      disable: false
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+    restart: always
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
+      # DB_STORAGE_TYPE: 'HDD'
+    volumes:
+      # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    shm_size: 128mb
+    restart: always
+
+volumes:
+  model-cache:
+
+networks:
+  media_network:
+    driver: bridge
