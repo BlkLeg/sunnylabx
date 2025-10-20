@@ -10,7 +10,7 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 
 ### Optimized Node Configuration
 - **Node #1 (ThousandSunny)**: Proxmox VE 8.x - Application & Storage Hub
-  - **Debian Docker LXC**: 39+ containers (media, databases, development, security)
+  - **Debian Docker VM**: 39+ containers (media, databases, development, security)
   - **Resource Optimization**: Direct storage access via bind mounts
 - **Node #2 (GoingMerry)**: Proxmox VE 8.x - Management & Security Hub  
   - **Debian Docker LXC**: 9 containers (monitoring, networking) - communication eliminated
@@ -219,284 +219,9 @@ Before starting, ensure the following ISO files are available:
    # Datacenter > Cluster should show both nodes
    ```
 
-## 🔒 Phase 3: Wazuh SIEM Docker Deployment (Enhanced Containerization)
+## 🔒 Phase 3: OPNsense Firewall VM Deployment (Enhanced Security)
 
-### Step 3.1: Wazuh Manager Stack in Node #1 LXC (ThousandSunny)
-
-1. **Wazuh Docker Resource Allocation**
-   ```yaml
-   Deployment: Docker containers in existing Node #1 LXC
-   Total Resources: 4.6GB RAM within LXC allocation
-   Components:
-   - Wazuh Manager: 1.5GB RAM, 1 CPU
-   - Wazuh Indexer: 2GB RAM, 1 CPU  
-   - Wazuh Dashboard: 1GB RAM, 0.5 CPU
-   Benefit: No VM overhead - runs in existing LXC
-   ```
-
-2. **Wazuh Docker Compose Configuration**
-   ```yaml
-   # Create Wazuh stack directory in Node #1 LXC
-   # /home/sunnylabx/docker-compose/security/wazuh-stack.yml
-   
-   version: '3.8'
-   services:
-     wazuh-manager:
-       image: wazuh/wazuh-manager:4.7.0
-       hostname: wazuh-manager
-       restart: always
-       ports:
-         - "1514:1514"      # Agent communication
-         - "1515:1515"      # Agent enrollment
-         - "514:514/udp"    # Syslog
-         - "55000:55000"    # API
-       environment:
-         - INDEXER_URL=https://wazuh-indexer:9200
-         - INDEXER_USERNAME=admin
-         - INDEXER_PASSWORD=SecurePassword123
-       volumes:
-         - wazuh_api_configuration:/var/ossec/api/configuration
-         - wazuh_etc:/var/ossec/etc
-         - wazuh_logs:/var/ossec/logs
-         - wazuh_queue:/var/ossec/queue
-         - wazuh_integrations:/var/ossec/integrations
-       depends_on:
-         - wazuh-indexer
-       networks:
-         - wazuh_net
-       deploy:
-         resources:
-           limits:
-             memory: 1.5G
-             cpus: '1'
-
-     wazuh-indexer:
-       image: wazuh/wazuh-indexer:4.7.0
-       hostname: wazuh-indexer
-       restart: always
-       ports:
-         - "9200:9200"
-       environment:
-         - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
-         - "bootstrap.memory_lock=true"
-         - "discovery.type=single-node"
-         - "network.host=0.0.0.0"
-       ulimits:
-         memlock:
-           soft: -1
-           hard: -1
-       volumes:
-         - wazuh-indexer-data:/var/lib/wazuh-indexer
-       networks:
-         - wazuh_net
-       deploy:
-         resources:
-           limits:
-             memory: 2G
-             cpus: '1'
-
-     wazuh-dashboard:
-       image: wazuh/wazuh-dashboard:4.7.0
-       hostname: wazuh-dashboard
-       restart: always
-       ports:
-         - "443:5601"       # Web dashboard
-       environment:
-         - INDEXER_USERNAME=admin
-         - INDEXER_PASSWORD=SecurePassword123
-         - WAZUH_API_URL=https://wazuh-manager
-         - API_USERNAME=wazuh-wui
-         - API_PASSWORD=MyS3cr37P450r.*-
-       depends_on:
-         - wazuh-indexer
-         - wazuh-manager
-       networks:
-         - wazuh_net
-       deploy:
-         resources:
-           limits:
-             memory: 1G
-             cpus: '0.5'
-
-   volumes:
-     wazuh_api_configuration:
-     wazuh_etc:
-     wazuh_logs:
-     wazuh_queue:
-     wazuh_integrations:
-     wazuh-indexer-data:
-
-   networks:
-     wazuh_net:
-       driver: bridge
-   ```
-
-3. **Deploy Wazuh Container Stack**
-   ```bash
-   # Enter Node #1 LXC
-   pct enter 101
-   
-   # Create directory structure
-   sudo mkdir -p /home/sunnylabx/docker-compose/security
-   cd /home/sunnylabx/docker-compose/security
-   
-   # Create the compose file (save above content as wazuh-stack.yml)
-   nano wazuh-stack.yml
-   
-   # Deploy stack
-   docker-compose -f wazuh-stack.yml up -d
-   
-   # Verify deployment
-   docker-compose -f wazuh-stack.yml ps
-   docker logs security_wazuh-manager_1
-   ```
-
-### Step 3.2: Wazuh Installation and Configuration
-
-1. **System Preparation**
-   ```bash
-   # SSH to Wazuh VM
-   ssh sunnylabx@192.168.0.100
-   
-   # Update system
-   sudo apt update && sudo apt upgrade -y
-   
-   # Install dependencies
-   sudo apt install curl apt-transport-https lsb-release gnupg -y
-   ```
-
-2. **Wazuh Repository Setup**
-   ```bash
-   # Import Wazuh GPG key
-   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
-   
-   # Add Wazuh repository
-   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee -a /etc/apt/sources.list.d/wazuh.list
-   
-   # Update package information
-   sudo apt update
-   ```
-
-3. **Wazuh Manager Installation**
-   ```bash
-   # Install Wazuh Manager
-   sudo apt install wazuh-manager -y
-   
-   # Enable and start Wazuh Manager
-   sudo systemctl daemon-reload
-   sudo systemctl enable wazuh-manager
-   sudo systemctl start wazuh-manager
-   
-   # Check status
-   sudo systemctl status wazuh-manager
-   ```
-
-4. **Wazuh Indexer Installation**
-   ```bash
-   # Install Wazuh Indexer (Elasticsearch replacement)
-   sudo apt install wazuh-indexer -y
-   
-   # Configure Wazuh Indexer
-   sudo systemctl daemon-reload
-   sudo systemctl enable wazuh-indexer
-   sudo systemctl start wazuh-indexer
-   
-   # Initialize cluster (single node setup)
-   sudo /usr/share/wazuh-indexer/bin/indexer-security-admin.sh -cd /etc/wazuh-indexer/opensearch-security/ -icl -nhnv -cacert /etc/wazuh-indexer/certs/root-ca.pem -cert /etc/wazuh-indexer/certs/admin.pem -key /etc/wazuh-indexer/certs/admin-key.pem
-   ```
-
-5. **Wazuh Dashboard Installation**
-   ```bash
-   # Install Wazuh Dashboard (Kibana replacement)
-   sudo apt install wazuh-dashboard -y
-   
-   # Enable and start dashboard
-   sudo systemctl daemon-reload
-   sudo systemctl enable wazuh-dashboard
-   sudo systemctl start wazuh-dashboard
-   
-   # Check all services
-   sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard
-   ```
-
-### Step 3.3: Wazuh Configuration and Access
-
-1. **Configure Firewall**
-   ```bash
-   # Enable UFW and configure access
-   sudo ufw enable
-   sudo ufw allow 22/tcp    # SSH
-   sudo ufw allow 1514/tcp  # Wazuh agent communication
-   sudo ufw allow 1515/tcp  # Wazuh agent enrollment
-   sudo ufw allow 443/tcp   # Wazuh dashboard (HTTPS)
-   sudo ufw allow 9200/tcp  # Wazuh indexer API
-   
-   # Allow access from lab network
-   sudo ufw allow from 192.168.0.0/24
-   ```
-
-2. **Access Wazuh Dashboard**
-   ```bash
-   # Default credentials (change immediately):
-   # URL: https://192.168.0.100
-   # Username: admin
-   # Password: admin
-   
-   # Change default password via dashboard or CLI:
-   sudo /usr/share/wazuh-indexer/plugins/opensearch-security/tools/hash.sh -p <new_password>
-   ```
-
-3. **Agent Configuration Template**
-   ```bash
-   # For future agent installations on LXCs:
-   # Manager IP: 192.168.0.100
-   # Agent key will be generated per container
-   ```
-   ```
-
-3. **Ubuntu Server Installation**
-   ```bash
-   # Start VM and connect via Console
-   qm start 100
-   
-   # Follow Ubuntu Server installation:
-   # - Install Ubuntu Server (minimal)
-   # - Configure disk partitioning (use full 50GB)
-   # - Set timezone and create user account (wazuh)
-   # - Install OpenSSH server
-   ```
-
-### Step 3.2: Wazuh Manager Installation
-
-1. **Network Configuration**
-   ```yaml
-   Management Interface: ens18
-   IP Address: 192.168.0.100/24
-   Gateway: 192.168.0.1
-   DNS: 192.168.0.1 (Router DNS)
-   Hostname: wazuh-manager
-   ```
-
-2. **Wazuh Manager Installation**
-   ```bash
-   # SSH into the VM
-   ssh wazuh@192.168.0.100
-   
-   # Update system
-   sudo apt update && sudo apt upgrade -y
-   
-   # Install required packages
-   sudo apt install curl apt-transport-https lsb-release gnupg -y
-   
-   # Add Wazuh repository
-   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
-   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee -a /etc/apt/sources.list.d/wazuh.list
-   
-   # Update package list
-   sudo apt update
-   
-   # Install Wazuh Manager
-   sudo apt install wazuh-manager -y
+### Step 3.1: OPNsense VM Creation for NordVPN Distribution
    
    # Enable and start Wazuh Manager
    sudo systemctl daemon-reload
@@ -521,97 +246,7 @@ Before starting, ensure the following ISO files are available:
    # Dashboard will be available at: https://192.168.0.100:443
    ```
 
-### Step 3.3: Wazuh Agent Configuration for Node #2 (LXC)
-
-1. **Install Wazuh Agent in Ubuntu Docker LXC**
-   ```bash
-   # Enter the Ubuntu LXC container
-   pct enter 101  # Assuming LXC ID 101 for Ubuntu Docker
-   
-   # Add Wazuh repository (same steps as manager)
-   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
-   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | tee -a /etc/apt/sources.list.d/wazuh.list
-   
-   # Install Wazuh Agent
-   apt update
-   WAZUH_MANAGER="192.168.0.100" apt install wazuh-agent -y
-   
-   # Enable and start agent
-   systemctl daemon-reload
-   systemctl enable wazuh-agent
-   systemctl start wazuh-agent
-   ```
-
-2. **Agent Registration and Key Management**
-   ```bash
-   # On Wazuh Manager (192.168.0.100)
-   # Register the LXC agent
-   sudo /var/ossec/bin/manage_agents -a
-   # Agent Name: ubuntu-docker-lxc
-   # Agent IP: 192.168.0.252
-   
-   # Extract agent key
-   sudo /var/ossec/bin/manage_agents -e AGENT_ID
-   
-   # On LXC Agent (192.168.0.252)
-   # Import the key
-   sudo /var/ossec/bin/manage_agents -i EXTRACTED_KEY
-   sudo systemctl restart wazuh-agent
-   ```
-
-4. **Post-Installation**
-   ```bash
-   # Enable monitoring of local network
-   sudo so-elastic-auth
-   
-   # Configure firewall rules for Proxmox access
-   sudo ufw allow from 192.168.0.0/24
-   ```
-
-### Step 3.4: Wazuh Agent for Node #1 (Future Deployment)
-
-1. **Prepare Node #1 Agent Installation Script**
-   ```bash
-   # Create script for future deployment to Node #1
-   cat > /tmp/install-wazuh-agent-node1.sh << 'EOF'
-   #!/bin/bash
-   # Wazuh Agent installation for Node #1 (ThousandSunny)
-   
-   # Add Wazuh repository
-   curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
-   echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | tee -a /etc/apt/sources.list.d/wazuh.list
-   
-   # Install agent
-   apt update
-   WAZUH_MANAGER="192.168.0.100" apt install wazuh-agent -y
-   
-   # Configure agent
-   systemctl daemon-reload
-   systemctl enable wazuh-agent
-   systemctl start wazuh-agent
-   EOF
-   
-   # Copy script to easily accessible location
-   scp /tmp/install-wazuh-agent-node1.sh shawnji@192.168.0.254:/home/shawnji/
-   ```
-
-### Step 3.5: Wazuh Integration
-
-1. **Log Sources Configuration**
-   - Configure syslog forwarding from all nodes to Wazuh Manager
-   - Set up Wazuh to receive logs from:
-     - Proxmox host logs
-     - Ubuntu LXC logs  
-     - ThousandSunny logs (after agent installation)
-     - Docker container logs
-
-2. **Docker Container Monitoring**
-   ```bash
-   # Configure Docker log driver to forward to Wazuh
-   # This will be configured in the LXC Docker setup
-   ```
-
-## � Phase 3B: OPNsense Firewall VM Deployment (Enhanced Security)
+## 🔧 Phase 3: OPNsense Firewall VM Deployment (Enhanced Security)
 
 ### Step 3B.1: OPNsense VM Creation for NordVPN Distribution
 
@@ -741,64 +376,78 @@ Before starting, ensure the following ISO files are available:
 
 ## �🐳 Phase 4: LXC Container Deployment (Dual Node)
 
-### Step 4.1: Node #1 (ThousandSunny) LXC Deployment
+### Step 4.1: Node #1 (ThousandSunny) VM Deployment
 
-1. **Primary Debian LXC for Docker Services**
+1. **Primary Debian VM for Docker Services**
    ```yaml
-   CT ID: 101
+   VM ID: 101
    Name: debian-docker-main
    Template: Debian 12 (Bookworm)
    CPU: 4 cores
-   RAM: 10GB (includes Dockerized Wazuh SIEM stack)
+   RAM: 10.5GB
    Disk: 200GB (on local-lvm)
    Network: vmbr0 (bridged)
    Static IP: 192.168.0.251/24
-   Features: nesting=1,keyctl=1 (required for Docker)
-   Privileged: true (required for Docker operations)
+   Features: KVM virtualization, QEMU Guest Agent
+   Security: Full VM isolation
    ```
 
-2. **Create and Configure Main LXC**
+2. **Create and Configure Main VM**
    ```bash
    # On ThousandSunny Proxmox (192.168.0.254)
-   # Create LXC via web UI or CLI:
-   pct create 101 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
-     --hostname debian-docker-main \
-     --memory 8192 \
-     --swap 12288 \
+   # Create VM via web UI or CLI:
+   qm create 101 \
+     --name debian-docker-main \
+     --memory 10752 \
      --cores 4 \
-     --rootfs local-lvm:200 \
-     --net0 name=eth0,bridge=vmbr0,ip=192.168.0.251/24,gw=192.168.0.1 \
-     --features nesting=1,keyctl=1 \
-     --unprivileged 0
+     --net0 virtio,bridge=vmbr0 \
+     --virtio0 local-lvm:200 \
+     --bootdisk virtio0 \
+     --ostype l26 \
+     --agent enabled=1 \
+     --cpu host
    
-   # Start LXC
-   pct start 101
+   # Import Debian cloud image
+   qm importdisk 101 debian-12-generic-amd64.qcow2 local-lvm
+   
+   # Configure VM
+   qm set 101 --scsihw virtio-scsi-pci
+   qm set 101 --boot c --bootdisk virtio0
+   qm set 101 --serial0 socket --vga serial0
+   
+   # Start VM
+   qm start 101
    ```
 
-3. **Configure Main LXC Environment**
+3. **Configure Main VM Environment**
    ```bash
-   # Enter LXC container
-   pct enter 101
-   
-   # Create user
-   adduser sunnylabx
-   usermod -aG sudo sunnylabx
+   # SSH into the VM (after initial setup)
+   ssh sunnylabx@192.168.0.251
    
    # Update system
-   apt update && apt upgrade -y
+   sudo apt update && sudo apt upgrade -y
+   
+   # Install QEMU Guest Agent
+   sudo apt install qemu-guest-agent -y
+   sudo systemctl enable qemu-guest-agent
+   sudo systemctl start qemu-guest-agent
    
    # Install Docker and Docker Compose
    curl -fsSL https://get.docker.com -o get-docker.sh
-   sh get-docker.sh
-   usermod -aG docker sunnylabx
+   sudo sh get-docker.sh
+   sudo usermod -aG docker sunnylabx
    
    # Install Docker Compose
-   curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-   chmod +x /usr/local/bin/docker-compose
+   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   sudo chmod +x /usr/local/bin/docker-compose
    
    # Enable Docker service
-   systemctl enable docker
-   systemctl start docker
+   sudo systemctl enable docker
+   sudo systemctl start docker
+   
+   # Configure storage mounts
+   sudo mkdir -p /mnt/hdd-{1,2,3,4}
+   # Add mount points to /etc/fstab for direct storage access
    ```
 
 ### Step 4.2: Node #2 (GoingMerry) LXC Deployment
@@ -1121,9 +770,6 @@ volumes:
 thousandsunny ansible_host=192.168.0.254 ansible_user=root ansible_ssh_private_key_file=~/.ssh/id_rsa
 goingmerry ansible_host=192.168.0.253 ansible_user=root ansible_ssh_private_key_file=~/.ssh/id_rsa
 
-# Virtual machines
-wazuh-manager ansible_host=192.168.0.100 ansible_user=sunnylabx ansible_ssh_private_key_file=~/.ssh/id_rsa
-
 # LXC containers
 ubuntu-docker-main ansible_host=192.168.0.251 ansible_user=sunnylabx ansible_ssh_private_key_file=~/.ssh/id_rsa
 ubuntu-docker-secondary ansible_host=192.168.0.252 ansible_user=sunnylabx ansible_ssh_private_key_file=~/.ssh/id_rsa
@@ -1150,10 +796,6 @@ ubuntu-docker-secondary
 # Hosts running Docker services in LXCs
 ubuntu-docker-main
 ubuntu-docker-secondary
-
-[security_monitoring]
-# Security monitoring platforms
-wazuh-manager
 
 [management_cluster]
 # Proxmox cluster management
@@ -1524,62 +1166,7 @@ goingmerry
 
 ## 🔄 Phase 8: Integrated Security & Log Management
 
-### Step 8.1: Wazuh Agent Deployment
-
-1. **Install Wazuh Agents on All Systems**
-   ```bash
-   # Install on both Proxmox hosts
-   for node in 192.168.0.254 192.168.0.253; do
-     ssh root@$node "
-       curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | apt-key add -
-       echo 'deb https://packages.wazuh.com/4.x/apt/ stable main' > /etc/apt/sources.list.d/wazuh.list
-       apt update && apt install wazuh-agent -y
-       
-       # Configure agent
-       sed -i 's/<address>MANAGER_IP<\/address>/<address>192.168.0.100<\/address>/' /var/ossec/etc/ossec.conf
-       systemctl enable wazuh-agent
-       systemctl start wazuh-agent
-     "
-   done
-   
-   # Install on both LXC containers
-   for lxc in 192.168.0.251 192.168.0.252; do
-     ssh sunnylabx@$lxc "
-       curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -
-       echo 'deb https://packages.wazuh.com/4.x/apt/ stable main' | sudo tee /etc/apt/sources.list.d/wazuh.list
-       sudo apt update && sudo apt install wazuh-agent -y
-       
-       # Configure agent
-       sudo sed -i 's/<address>MANAGER_IP<\/address>/<address>192.168.0.100<\/address>/' /var/ossec/etc/ossec.conf
-       sudo systemctl enable wazuh-agent
-       sudo systemctl start wazuh-agent
-     "
-   done
-   ```
-
-2. **Docker Container Log Integration**
-   ```bash
-   # Configure Docker logging driver on both LXCs
-   # This forwards container logs to Wazuh Manager
-   
-   for lxc in 192.168.0.251 192.168.0.252; do
-     ssh sunnylabx@$lxc "
-       sudo mkdir -p /etc/docker
-       cat <<EOF | sudo tee /etc/docker/daemon.json
-   {
-     \"log-driver\": \"syslog\",
-     \"log-opts\": {
-       \"syslog-address\": \"tcp://192.168.0.100:514\",
-       \"tag\": \"{{.ImageName}}/{{.Name}}/{{.ID}}\"
-     }
-   }
-   EOF
-       sudo systemctl restart docker
-     "
-   done
-   ```
-
-### Step 8.2: Monitoring Stack Integration
+### Step 8.1: Monitoring Stack Integration
 
 1. **Prometheus Targets Configuration**
    ```yaml
@@ -1596,10 +1183,6 @@ goingmerry
        static_configs:
          - targets: ['192.168.0.253:9100']  # node-exporter on Proxmox
      
-     - job_name: 'wazuh-manager'
-       static_configs:
-         - targets: ['192.168.0.100:9200']  # Wazuh indexer metrics
-     
      - job_name: 'lxc-containers'
        static_configs:
          - targets: ['192.168.0.251:9100', '192.168.0.252:9100']
@@ -1609,14 +1192,13 @@ goingmerry
    ```bash
    # Import updated dashboards that include:
    # - Proxmox cluster overview (replaces Portainer functionality)
-   # - Wazuh security metrics (replaces separate security dashboards)
    # - Optimized resource allocation views
    # - Service health monitoring (replaces Uptime Kuma)
    ```
 
-1. **Network Monitoring**
+3. **Network Monitoring**
    ```bash
-   # Configure Security Onion for network monitoring
+   # Configure network monitoring
    # Monitor traffic between:
    # - Proxmox host <-> VMs
    # - GoingMerry <-> ThousandSunny
@@ -1624,13 +1206,13 @@ goingmerry
    # - External internet traffic
    ```
 
-2. **Alerting Configuration**
-   - Configure Security Onion alerts for:
-     - Failed SSH attempts
-     - Unusual network traffic
-     - Container anomalies
-     - Resource exhaustion
-     - Service failures
+4. **Alerting Configuration**
+   Configure alerts for:
+   - Failed SSH attempts
+   - Unusual network traffic
+   - Container anomalies
+   - Resource exhaustion
+   - Service failures
 
 ## 🛠️ Troubleshooting & Maintenance
 
@@ -1679,13 +1261,14 @@ goingmerry
 
 ## 📋 Dual Proxmox Cluster Resource Summary (Debian)
 
-### Node #1 (ThousandSunny) - Proxmox VE + Debian LXC - 12GB RAM, 4 CPU cores, 12GB SWAP
+### Node #1 (ThousandSunny) - Proxmox VE + Debian VM - 12GB RAM, 4 CPU cores, 12GB SWAP
 ```
-Optimized Proxmox Deployment with Dockerized Wazuh:
-├── Proxmox Host: 2GB RAM, 0.5 CPU cores
-├── Debian Docker LXC: 10GB RAM (12GB SWAP), 3.5 CPU cores (37+ services including Wazuh)
+Optimized Proxmox Deployment:
+├── Proxmox Host: 1.5GB RAM, 0.5 CPU cores
+├── Debian Docker VM: 10.5GB RAM (12GB SWAP), 3.5 CPU cores (37+ services)
+│   └── Note: Additional 0.5GB overhead for VM vs LXC
 ├── Available for expansion: 0GB RAM, 0 CPU cores + SWAP buffer
-└── Utilization: 83% RAM (improved from 117%), 87.5% CPU (improved efficiency)
+└── Utilization: 87% RAM (accounts for VM overhead), 87.5% CPU (maintained efficiency)
 ```
 
 ### Node #2 (GoingMerry) - Proxmox VE + Debian LXC - 16GB RAM, 4 CPU cores, 13GB SWAP
@@ -1700,22 +1283,24 @@ Enhanced Security Proxmox Deployment (Communication Stack Eliminated):
 
 ### Optimized Service Distribution (46+ Services Total)
 
-#### Node #1 (ThousandSunny) - 37+ Services in LXC (Including Dockerized Wazuh)
+#### Node #1 (ThousandSunny) - 37+ Services in VM
 ```
-Storage & Media-Intensive Workloads + Security:
+Storage & Media-Intensive Workloads:
 ├── Media Services (9): Plex OR Jellyfin (backup), ARR Suite, Immich, Kavita, Overseerr
 │   └── Benefits: NFS access to 4x4TB HDDs, optimized storage I/O
 │   └── Note: Jellyfin only runs when Plex is down (mutual exclusivity saves ~1-2GB RAM)
 ├── Infrastructure (15): PostgreSQL, Redis, Gitea, Nextcloud, DevOps tools  
 │   └── Benefits: High-performance storage, database optimization
 ├── IoT/Home Automation (7): Home Assistant, MQTT, InfluxDB, Zigbee2MQTT
-│   └── Benefits: USB device passthrough via LXC
+│   └── Benefits: USB device passthrough via QEMU
 ├── Torrent/Download (3): qBittorrent, Deluge
 │   └── Benefits: Direct storage access for downloads
 ├── Development (2): Code-server, Git services
 │   └── Benefits: Local development environment
-├── Security Monitoring (3): Wazuh Manager, Wazuh Indexer, Wazuh Dashboard
-│   └── Benefits: Dockerized SIEM stack, no VM overhead, better containerization practice
+├── Security Benefits:
+│   └── Full VM isolation for enhanced security
+│   └── QEMU Guest Agent for better integration
+│   └── Snapshot support with memory state
 └── Total: 37+ services (optimized resource efficiency)
 ```
 
@@ -1781,10 +1366,9 @@ Benefits:
 ```
 Security Improvements:
 ├── VM/LXC isolation vs direct container access
-├── Dedicated Wazuh Manager with better resource allocation
 ├── Snapshot-based security (rollback capabilities)
 ├── Network segmentation between VMs/LXCs
-└── Agent-based monitoring across entire infrastructure
+└── Integrated monitoring across infrastructure
 ```
 
 ### 3. **Operational Efficiency**
@@ -1832,19 +1416,17 @@ Resource Benefits:
 - ✅ **Scalability**: Easy addition of new nodes to cluster
 
 ### **Final Architecture: Production-Ready Secure Homelab with Enhanced Containerization**
-- **51-53 optimized services** (increased from 48-50 due to Dockerized Wazuh)
+- **48-50 optimized services**
 - **Dual Proxmox cluster** with unified management
-- **Dockerized security monitoring** (Wazuh SIEM stack in containers)
 - **Advanced network security** (OPNsense VM with NordVPN)
 - **Enhanced memory management** (25GB SWAP total)
 - **Efficient resource utilization** across both nodes
 - **Professional backup and monitoring** capabilities
 - **1.75GB RAM liberation** for application workloads  
-✅ **Security Benefits**: Process isolation + VPN distribution + advanced firewall + containerized SIEM  
+✅ **Security Benefits**: Process isolation + VPN distribution + advanced firewall  
 ✅ **Future Flexibility**: Easy to adjust resources, add containers  
 ✅ **Backup Strategy**: Built-in LXC snapshots and templates  
 ✅ **Network Security**: All traffic routed through NordVPN tunnel
-✅ **Containerization Excellence**: Wazuh demonstrates advanced Docker practices
 
 **Why Not VMs for Everything**:
 ❌ **Resource Waste**: 1-2GB overhead per VM too expensive  
