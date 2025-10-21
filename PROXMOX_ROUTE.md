@@ -5,7 +5,7 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 ## 🎯 Architecture Overview
 
 **Total Deployment Time**: 8-10 hours (including dual Proxmox setup and service migration)
-**Services**: 48-50 containers across dual Proxmox deployment (down from 55)
+**Services**: 42-44 containers across dual Proxmox deployment (optimized from 48-50)
 **Approach**: Dual Proxmox - Unified virtualization across both nodes
 
 ### Optimized Node Configuration
@@ -34,13 +34,11 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 - **Strategy**: LXC deployment with aggressive resource limits, direct storage bind mounts
 
 #### Service Categories (Node #1) - Optimized
-- **Media Services (9)**: Plex OR Jellyfin (backup), ARR Suite, Immich (~5-7GB RAM) - *Jellyfin only runs when Plex is down*
-- **IoT/Home Automation (7)**: Home Assistant, MQTT, InfluxDB (~2-3GB RAM)
+- **Media Services (4)**: Plex OR Jellyfin (backup), Radarr, Immich (~4-5GB RAM) - *Jellyfin only runs when Plex is down*
 - **Infrastructure (13)**: Databases, DevOps, Gitea, Nextcloud (~4-5GB RAM) - **Duplicati eliminated**
-- **Security/SIEM (3)**: Wazuh Manager, Wazuh Indexer, Wazuh Dashboard (~1.5GB RAM)
-- **Torrent/Download (3)**: qBittorrent, Deluge (~1GB RAM)
-- **Agents (2)**: **Portainer Agent eliminated**, Wazuh Agent (~128MB RAM)
-- **AI Automation**: n8n on Node #2 serves as sole AI agent
+- **Torrent/Download (1)**: Deluge (~0.5GB RAM)
+- **Agents (1)**: **Portainer Agent eliminated** (~128MB RAM)
+- **Automation**: Home Assistant, MQTT, InfluxDB moved to Node #2
 
 ### Node #2 (GoingMerry) - Proxmox Management Hub
 - **Hardware**: Mini PC, Intel Twin Lake-N150 (4 cores), 16GB DDR4, 500GB NVMe
@@ -53,17 +51,17 @@ This deployment guide walks you through a **dual Proxmox virtualization approach
 ```
 Total Resources: 16GB RAM, 4 CPU cores, 25GB SWAP
 ├── Proxmox Host: 1GB RAM, 0.25 CPU (minimal overhead)
-├── Debian Docker LXC: 10GB RAM, 3.25 CPU (37+ services - includes Wazuh stack)
+├── Debian Docker LXC: 8GB RAM, 3.25 CPU (14 services - includes automation stack)
 ├── OPNsense Firewall VM: 1GB RAM, 0.5 CPU (NordVPN distribution)
-└── Utilization: 75% RAM, 100% CPU + 4GB unallocated + 25GB SWAP buffer
+└── Utilization: 62.5% RAM, 100% CPU + 6GB unallocated + 25GB SWAP buffer
 ```
 
 #### Service Categories (Node #2) - Streamlined
 - **Networking (2)**: Nginx Proxy, Cloudflare (~256MB RAM)
 - **Monitoring (6)**: Prometheus, Grafana, Loki, Promtail, AlertManager, Node-Exporter (~2-3GB RAM)
 - **Security (2)**: Authentik, CrowdSec (~1GB RAM)
-- **Security Enhancement**: OPNsense VM + Dockerized Wazuh SIEM stack (runs on Node #1)
-- **Automation (1)**: n8n (~512MB RAM) - **Total: 9 services**
+- **Automation (4)**: n8n, Home Assistant, MQTT, InfluxDB (~2.5GB RAM)
+- **Total: 14 services**
 
 ## 🔧 Phase 1: Node #1 Proxmox Installation (ThousandSunny)
 
@@ -1265,10 +1263,10 @@ goingmerry
 ```
 Optimized Proxmox Deployment:
 ├── Proxmox Host: 1.5GB RAM, 0.5 CPU cores
-├── Debian Docker VM: 10.5GB RAM (12GB SWAP), 3.5 CPU cores (37+ services)
+├── Debian Docker VM: 8GB RAM (12GB SWAP), 3.5 CPU cores (19 services)
 │   └── Note: Additional 0.5GB overhead for VM vs LXC
-├── Available for expansion: 0GB RAM, 0 CPU cores + SWAP buffer
-└── Utilization: 87% RAM (accounts for VM overhead), 87.5% CPU (maintained efficiency)
+├── Available for expansion: 2.5GB RAM, 0 CPU cores + SWAP buffer
+└── Utilization: 79% RAM (accounts for VM overhead), 87.5% CPU (maintained efficiency)
 ```
 
 ### Node #2 (GoingMerry) - Proxmox VE + Debian LXC - 16GB RAM, 4 CPU cores, 13GB SWAP
@@ -1283,25 +1281,23 @@ Enhanced Security Proxmox Deployment (Communication Stack Eliminated):
 
 ### Optimized Service Distribution (46+ Services Total)
 
-#### Node #1 (ThousandSunny) - 37+ Services in VM
+#### Node #1 (ThousandSunny) - 19 Services in VM
 ```
 Storage & Media-Intensive Workloads:
-├── Media Services (9): Plex OR Jellyfin (backup), ARR Suite, Immich, Kavita, Overseerr
+├── Media Services (4): Plex OR Jellyfin (backup), Radarr, Immich
 │   └── Benefits: NFS access to 4x4TB HDDs, optimized storage I/O
 │   └── Note: Jellyfin only runs when Plex is down (mutual exclusivity saves ~1-2GB RAM)
-├── Infrastructure (15): PostgreSQL, Redis, Gitea, Nextcloud, DevOps tools  
+├── Infrastructure (13): PostgreSQL, Redis, Gitea, Nextcloud, DevOps tools  
 │   └── Benefits: High-performance storage, database optimization
-├── IoT/Home Automation (7): Home Assistant, MQTT, InfluxDB, Zigbee2MQTT
-│   └── Benefits: USB device passthrough via QEMU
-├── Torrent/Download (3): qBittorrent, Deluge
+├── Torrent/Download (1): Deluge
 │   └── Benefits: Direct storage access for downloads
-├── Development (2): Code-server, Git services
+├── Development (1): Git services
 │   └── Benefits: Local development environment
 ├── Security Benefits:
 │   └── Full VM isolation for enhanced security
 │   └── QEMU Guest Agent for better integration
 │   └── Snapshot support with memory state
-└── Total: 37+ services (optimized resource efficiency)
+└── Total: 19 services (streamlined resource efficiency)
 ```
 
 #### Node #2 (GoingMerry) - 9 Services in LXC (Streamlined)
